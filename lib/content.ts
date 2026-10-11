@@ -2,22 +2,20 @@ import type { CharacterKind, CritterSpec, PropKind } from "@/components/art";
 
 export const CONTACT_EMAIL = "hello@tsayvish.com";
 
-/* The in-house cast. Early concepts, shown for illustration. */
-export type CastMember = CritterSpec & { line: string; status: string; hot?: boolean };
+/* The in-house cast. Early concepts, shown for illustration.
+   `image` is the finished render (in public/cast); the drawing fields are a fallback and set the tint color. */
+export type CastMember = CritterSpec & { line: string; status: string; hot?: boolean; image: string };
 
 export const CAST: CastMember[] = [
-  { name: "Pudding", species: "Frog", body: "var(--mint)", ears: "frog", prop: "sweat",
-    line: "Says she’s fine. Is not fine. Rehearses every phone call twice.", status: "Breakout signal", hot: true },
-  { name: "Gus", species: "Capybara", body: "var(--peach)", ears: "tiny", shape: "box", prop: "leaf",
-    line: "Color-codes his calendar. Still twenty minutes late to everything.", status: "Testing" },
-  { name: "Pip", species: "Hamster", body: "var(--pink)", ears: "small", prop: "sparkle",
-    line: "Romanticizes errands. Main-character energy in the cereal aisle.", status: "Testing" },
-  { name: "Dot", species: "Otter", body: "var(--sky)", ears: "tiny", prop: "bubble",
-    line: "Sends seven-minute voice notes. Never listens to yours.", status: "Testing" },
-  { name: "Sorrel", species: "Cat", body: "var(--lilac)", ears: "pointy", eyes: "sleepy", prop: "zz",
-    line: "Cancels plans and feels wonderful about it. Patron saint of staying in.", status: "Breakout signal", hot: true },
-  { name: "Bramble", species: "Bear", body: "var(--butter)", ears: "round", prop: "band",
-    line: "Training for his first 5K. Mostly by buying the gear.", status: "Testing" },
+  { name: "Burnout Bunny", species: "Bunny", body: "var(--lilac)", ears: "round", eyes: "sleepy", prop: "zz",
+    image: "/cast/burnout-bunny.webp",
+    line: "Running on three hours of sleep and one iced coffee. Too tired to be mad. Mad anyway.", status: "Breakout signal", hot: true },
+  { name: "Delulu Duck", species: "Duck", body: "var(--butter)", ears: "tiny", prop: "sparkle",
+    image: "/cast/delulu-duck.webp",
+    line: "Fully convinced this is their year. It has been their year since 2019. Manifests in the group chat.", status: "Breakout signal", hot: true },
+  { name: "Avoidant Bear", species: "Bear", body: "var(--mint)", ears: "round", eyes: "sleepy", prop: "leaf",
+    image: "/cast/avoidant-bear.webp",
+    line: "Left you on read, lovingly. Will reply when emotionally ready. Has a book open so nobody talks to him.", status: "Testing" },
 ];
 
 /* Everything tsayvish handles, grouped into four lanes. */

@@ -176,7 +176,7 @@ a.st-row:hover{background:color-mix(in srgb, var(--accent) 4%, var(--st-panel))}
 .st-castopt-pic svg{width:86%; height:auto}
 .st-castopt b{font-weight:600; font-size:.9rem; display:block}
 .st-castopt small{font-size:.75rem; color:var(--muted)}
-@media (max-width:480px){ .st-castpick{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:480px){ .st-castpick{grid-template-columns:1fr} }
 
 /* project page */
 .st-project-head{display:flex; align-items:center; gap:18px}

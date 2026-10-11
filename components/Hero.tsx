@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Critter } from "./art";
+import { CastArt } from "./CastArt";
 import { CAST, LANES } from "@/lib/content";
 
 export function Hero() {
@@ -25,7 +25,7 @@ export function Hero() {
         <div className="lineup" aria-label="Our first characters">
           {CAST.map((c) => (
             <figure key={c.name}>
-              <Critter {...c} />
+              <CastArt member={c} eager />
               <figcaption className="tag">{c.name}</figcaption>
             </figure>
           ))}

@@ -1,4 +1,5 @@
-import { CharacterArt, Critter } from "./art";
+import { CharacterArt } from "./art";
+import { CastArt } from "./CastArt";
 import { CAST } from "@/lib/content";
 
 export function TwoWays() {
@@ -41,7 +42,7 @@ export function TwoWays() {
             </ul>
             <a className="btn ghost" href="#cast">Meet our cast</a>
             <div className="mini" aria-hidden="true">
-              <Critter {...CAST[0]} />
+              <CastArt member={CAST[0]} />
             </div>
           </article>
         </div>

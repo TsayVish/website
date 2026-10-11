@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { Critter } from "@/components/art";
+import { CastArt } from "@/components/CastArt";
 import { CAST, PARTNER_INTERESTS, type PartnerInterest } from "@/lib/content";
 import { createClient } from "@/lib/supabase/client";
 import type { Project } from "@/lib/types";
@@ -70,8 +70,8 @@ export function PartnerForm({ initial }: { initial?: Project }) {
                 key={c.name} type="button" className="st-castopt" aria-pressed={picked.includes(c.name)}
                 onClick={() => toggle(c.name)}
               >
-                <span className="st-castopt-pic" style={{ background: `color-mix(in srgb, ${c.body} 40%, var(--surface))` }}>
-                  <Critter {...c} />
+                <span className="st-castopt-pic cast-pic">
+                  <CastArt member={c} />
                 </span>
                 <span className="st-castopt-text">
                   <b>{c.name}</b>
@@ -101,7 +101,7 @@ export function PartnerForm({ initial }: { initial?: Project }) {
         </div>
         <div className="field">
           <label htmlFor="pf-name">Project name <span className="opt-hint">(optional)</span></label>
-          <input className="st-input" id="pf-name" name="projectName" maxLength={60} placeholder="e.g. Pudding plush for spring" defaultValue={initial?.name ?? ""} />
+          <input className="st-input" id="pf-name" name="projectName" maxLength={60} placeholder="e.g. Burnout Bunny plush for spring" defaultValue={initial?.name ?? ""} />
         </div>
         <div className="field">
           <label htmlFor="pf-message">Tell us about it <span className="opt-hint">(optional)</span></label>

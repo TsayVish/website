@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Critter } from "@/components/art";
+import { CastArt } from "@/components/CastArt";
 import { Carousel } from "@/components/studio/discover/Carousel";
 import { ListingTile } from "@/components/studio/discover/ListingTile";
 import { MemberRow } from "@/components/studio/discover/MemberRow";
@@ -153,7 +153,7 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
       <Carousel title="The tsayvish cast" action={<Link href="/studio/new/partner" className="dc-more">Partner with us</Link>}>
         {CAST.map((c) => (
           <Link key={c.name} href="/studio/new/partner" className="dc-tile">
-            <span className="dc-tile-art" style={{ background: `color-mix(in srgb, ${c.body} 35%, var(--st-panel))` }}><Critter {...c} /></span>
+            <span className="dc-tile-art cast-pic"><CastArt member={c} /></span>
             <span className="dc-tile-body">
               <b>{c.name}</b>
               <span>{c.line}</span>

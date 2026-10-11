@@ -6,9 +6,9 @@
 .side h1{font-family:var(--display); font-weight:800; font-size:clamp(2.2rem,4.4vw,3.8rem); line-height:1.02; letter-spacing:-.03em; margin:0; max-width:12ch; text-wrap:balance}
 .side p{margin:14px 0 0; color:color-mix(in srgb, var(--paper) 72%, var(--ink)); max-width:42ch}
 .crew{display:flex; align-items:flex-end; gap:6px; margin-bottom:-8px}
-.crew svg{width:clamp(70px,9vw,120px); height:auto; animation:authBob 3.2s ease-in-out infinite}
-.crew svg:nth-child(2){animation-delay:-1s; width:clamp(84px,11vw,140px)}
-.crew svg:nth-child(3){animation-delay:-2s}
+.crew img{border-radius:18px; border:2px solid var(--ink); aspect-ratio:1; object-fit:cover; width:clamp(70px,9vw,120px); height:auto; animation:authBob 3.2s ease-in-out infinite}
+.crew img:nth-child(2){animation-delay:-1s; width:clamp(84px,11vw,140px)}
+.crew img:nth-child(3){animation-delay:-2s}
 @keyframes authBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
 .main{display:grid; place-items:center; padding:clamp(24px,5vw,56px) clamp(16px,5vw,56px)}
@@ -47,9 +47,9 @@
   .split{grid-template-columns:1fr}
   .side{gap:24px}
   .side p{display:none}
-  .crew svg, .crew svg:nth-child(2){width:64px}
+  .crew img, .crew img:nth-child(2){width:64px}
 }
-@media (prefers-reduced-motion: reduce){ .crew svg{animation:none} .submit{transition:none} }
+@media (prefers-reduced-motion: reduce){ .crew img{animation:none} .submit{transition:none} }
 .hint{color:var(--muted); font-size:.8rem}
 .submit:disabled, .linkBtn:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}
 .google{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; font:600 1rem var(--body); padding:13px 20px; border-radius:999px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); cursor:pointer; transition:transform .15s, box-shadow .15s}

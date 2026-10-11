@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Critter } from "@/components/art";
+import { CastArt } from "@/components/CastArt";
 import { CharacterBuilder } from "@/components/CharacterBuilder";
 import { DealForm } from "@/components/studio/DealForm";
 import { DeleteProject } from "@/components/studio/DeleteProject";
@@ -291,12 +291,12 @@ export default async function ProjectPage({
             <div className="st-castlist">
               {project.cast_members.map((n) => {
                 const c = castByName(n);
-                return c ? (
+                return (
                   <div key={n} className="st-castmini">
-                    <span style={{ background: `color-mix(in srgb, ${c.body} 40%, var(--surface))` }}><Critter {...c} /></span>
+                    {c && <span className="cast-pic"><CastArt member={c} /></span>}
                     {n}
                   </div>
-                ) : null;
+                );
               })}
             </div>
           </div>

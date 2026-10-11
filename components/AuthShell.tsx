@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Critter } from "./art";
+import { CastArt } from "./CastArt";
+import { CAST } from "@/lib/content";
 import { LogoMark } from "./Logo";
 import s from "./auth.module.css";
 
@@ -17,9 +18,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           <p>Create originals, partner with the tsayvish cast, and run every project from one account.</p>
         </div>
         <div className={s.crew} aria-hidden="true">
-          <Critter name="Pudding" species="Frog" body="var(--mint)" ears="frog" />
-          <Critter name="Bramble" species="Bear" body="var(--butter)" ears="round" />
-          <Critter name="Sorrel" species="Cat" body="var(--lilac)" ears="pointy" />
+          {CAST.map((c) => <CastArt key={c.name} member={c} eager />)}
         </div>
       </aside>
       <main className={s.main}>

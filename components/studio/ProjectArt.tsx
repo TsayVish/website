@@ -1,5 +1,6 @@
-import { CharacterPicture, Critter, type CharacterKind } from "@/components/art";
-import { castByName, colorValue, moodByName } from "@/lib/content";
+import { CharacterPicture, type CharacterKind } from "@/components/art";
+import { CastArt } from "@/components/CastArt";
+import { CAST, castByName, colorValue, moodByName } from "@/lib/content";
 import type { CharacterInfo, Project } from "@/lib/types";
 
 /** A saved character's picture from its stored fields (used by projects and marketplace listings). */
@@ -27,8 +28,8 @@ export function ProjectArt({ project }: { project: Project }) {
       />
     );
   }
-  const member = castByName(project.cast_members[0] ?? "") ?? castByName("Pudding");
-  return member ? <Critter {...member} /> : null;
+  const member = castByName(project.cast_members[0] ?? "") ?? CAST[0];
+  return <CastArt member={member} />;
 }
 
 /** A soft tint of the character's color, for thumbnail backgrounds. */
