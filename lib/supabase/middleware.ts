@@ -7,6 +7,16 @@ import { supabaseEnv } from "./env";
  * guards the Studio: logged-out visitors go to /login, logged-in visitors skip /login.
  */
 export async function updateSession(request: NextRequest) {
+  // If Supabase sends a login code to a page other than /auth/callback (for example the
+  // home page, when the redirect URL isn't on Supabase's allow list), finish the login anyway.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname !== "/auth/callback") {
+    const finish = request.nextUrl.clone();
+    finish.pathname = "/auth/callback";
+    finish.search = `?code=${encodeURIComponent(code)}&next=/studio`;
+    return NextResponse.redirect(finish);
+  }
+
   let response = NextResponse.next({ request });
   const { url, key } = supabaseEnv();
 

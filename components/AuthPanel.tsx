@@ -148,13 +148,9 @@ export function AuthPanel({ initialMode, next, linkError }: { initialMode: Mode;
   const googleBlock = (
     <>
       <button type="button" className={s.google} onClick={onGoogle} disabled={busy}>
-        {/* Google's official "G" mark. Download it from Google's sign-in branding guidelines
-            and save it as public/google-g.svg. If the file is missing, the icon hides itself. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/google-g.svg" alt="" width={18} height={18} className={s.googleIcon}
-          onError={(e) => { e.currentTarget.style.display = "none"; }}
-        />
+        {/* Google's official "G" mark, loaded from public/google-g.svg (download it from Google's
+            sign-in branding guidelines). Drawn as a background so a missing file shows nothing. */}
+        <span className={s.googleIcon} aria-hidden="true" />
         Continue with Google
       </button>
       <div className={s.or} aria-hidden="true"><span>or use email</span></div>
