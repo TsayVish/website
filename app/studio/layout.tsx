@@ -19,7 +19,10 @@ export default async function StudioLayout({ children }: { children: React.React
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?mode=login");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle();
+  const [{ data: profile }, { data: unread }] = await Promise.all([
+    supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle(),
+    supabase.rpc("unread_message_count"),
+  ]);
   const p = profile as { full_name: string | null; avatar_url: string | null } | null;
   const name = p?.full_name || "";
 
@@ -27,7 +30,7 @@ export default async function StudioLayout({ children }: { children: React.React
     <div className="st">
       <aside className="st-side">
         <SidebarFrame logo={<Logo />}>
-          <StudioNav />
+          <StudioNav me={user.id} unread={typeof unread === "number" ? unread : 0} />
           <div className="st-user">
             <SettingsLink />
             <Link href="/studio/settings" className="st-me">

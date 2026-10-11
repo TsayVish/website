@@ -2,29 +2,40 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconGear, IconGrid, IconHandshake, IconSpark, IconStore } from "./icons";
+import type { ReactNode } from "react";
+import { UnreadBadge } from "./UnreadBadge";
+import { IconChat, IconCompass, IconGear, IconGrid, IconHandshake, IconSearch, IconSpark, IconStore } from "./icons";
 
-const LINKS = [
-  { href: "/studio", label: "Projects", icon: <IconGrid />, exact: true },
-  { href: "/studio/new/original", label: "New original", icon: <IconSpark /> },
-  { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake /> },
-  { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore /> },
+type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: boolean };
+
+const MAIN: NavLink[] = [
+  { href: "/studio", label: "Discover", icon: <IconCompass />, match: (p) => p === "/studio" || p.startsWith("/studio/u/") },
+  { href: "/studio/search", label: "Search", icon: <IconSearch />, match: (p) => p.startsWith("/studio/search") },
+  { href: "/studio/messages", label: "Messages", icon: <IconChat />, match: (p) => p.startsWith("/studio/messages"), badge: true },
+  { href: "/studio/projects", label: "Projects", icon: <IconGrid />, match: (p) => p.startsWith("/studio/projects") || p.startsWith("/studio/p/") },
+  { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") },
 ];
 
-export function StudioNav() {
+const CREATE: NavLink[] = [
+  { href: "/studio/new/original", label: "New original", icon: <IconSpark />, match: (p) => p.startsWith("/studio/new/original") },
+  { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake />, match: (p) => p.startsWith("/studio/new/partner") },
+];
+
+export function StudioNav({ me, unread }: { me: string; unread: number }) {
   const path = usePathname() ?? "";
+  const item = (l: NavLink) => (
+    <Link key={l.href} href={l.href} aria-current={l.match(path) ? "page" : undefined}>
+      {l.icon}
+      <span className="st-nav-text">{l.label}</span>
+      {l.badge && <UnreadBadge initial={unread} me={me} />}
+    </Link>
+  );
   return (
     <nav className="st-nav" aria-label="Studio">
-      <span className="st-nav-label">Workspace</span>
-      {LINKS.map((l) => {
-        const current = l.exact ? path === l.href || path.startsWith("/studio/p/") : path.startsWith(l.href);
-        return (
-          <Link key={l.href} href={l.href} aria-current={current ? "page" : undefined}>
-            {l.icon}
-            {l.label}
-          </Link>
-        );
-      })}
+      <span className="st-nav-label">Explore</span>
+      {MAIN.map(item)}
+      <span className="st-nav-label">Create</span>
+      {CREATE.map(item)}
     </nav>
   );
 }

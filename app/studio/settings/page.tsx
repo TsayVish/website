@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Settings" };
 
 type ProfileRow = {
   full_name: string | null; goal: "build" | "partner"; avatar_url: string | null;
-  bio: string | null; location: string | null; website: string | null;
+  bio: string | null; location: string | null; website: string | null; discoverable: boolean | null;
 };
 
 export default async function SettingsPage() {
@@ -19,7 +19,7 @@ export default async function SettingsPage() {
   } = await supabase.auth.getUser();
   const { data } = await supabase
     .from("profiles")
-    .select("full_name, goal, avatar_url, bio, location, website")
+    .select("full_name, goal, avatar_url, bio, location, website, discoverable")
     .eq("id", user!.id)
     .maybeSingle();
   const p = data as ProfileRow | null;
@@ -49,6 +49,7 @@ export default async function SettingsPage() {
           website: p?.website ?? "",
           avatar_url: p?.avatar_url ?? null,
           goal: p?.goal ?? "build",
+          discoverable: p?.discoverable ?? true,
         }}
       />
       <EmailForm current={user!.email ?? ""} pending={user!.new_email} />

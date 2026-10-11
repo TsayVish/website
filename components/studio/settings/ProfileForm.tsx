@@ -13,6 +13,7 @@ export type ProfileValues = {
   website: string;
   avatar_url: string | null;
   goal: "build" | "partner";
+  discoverable: boolean;
 };
 
 export function ProfileForm({ userId, initial }: { userId: string; initial: ProfileValues }) {
@@ -63,6 +64,7 @@ export function ProfileForm({ userId, initial }: { userId: string; initial: Prof
           website: website || null,
           avatar_url: avatarUrl,
           goal: v.goal,
+          discoverable: v.discoverable,
         })
         .eq("id", userId);
       if (error) throw new Error(error.message);
@@ -81,7 +83,7 @@ export function ProfileForm({ userId, initial }: { userId: string; initial: Prof
     <form className="panel" id="profile" onSubmit={onSubmit} noValidate>
       <div className="st-set-head">
         <h2>Profile</h2>
-        <p className="st-muted">Shown on your Marketplace listings and to the tsayvish team.</p>
+        <p className="st-muted">Shown on your profile, your Marketplace listings and in Messages.</p>
       </div>
 
       <div className="st-photo">
@@ -112,6 +114,13 @@ export function ProfileForm({ userId, initial }: { userId: string; initial: Prof
           <label htmlFor="pr-web">Website <span className="opt-hint">(optional)</span></label>
           <input className="st-input" id="pr-web" type="url" maxLength={200} placeholder="https://" value={v.website} onChange={(e) => set("website", e.target.value)} />
         </div>
+        <label className="toggle st-wide st-discover-toggle" htmlFor="pr-discover">
+          <span className="t">
+            <b>Show me in Discover</b>
+            <small>Other members can find your profile in Discover and Search. People you’re already chatting with can always see it.</small>
+          </span>
+          <input type="checkbox" id="pr-discover" checked={v.discoverable} onChange={(e) => { setV((p) => ({ ...p, discoverable: e.target.checked })); setMsg(null); }} />
+        </label>
         <div className="field st-wide">
           <span className="lbl" id="pr-goal">Show first in my Studio</span>
           <div className="chips" role="group" aria-labelledby="pr-goal">

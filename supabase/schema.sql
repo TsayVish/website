@@ -390,3 +390,171 @@ alter table public.listings add constraint listings_categories_check check (
     'Illustration & design', 'Animation & video', 'Voice & music', 'Writing',
     'Legal & IP', 'Manufacturing', 'Marketing & growth', 'Events', 'Other']::text[]
   and category = categories[1]);
+
+-- ═════════════════════════════════════════════════════════════
+-- Update 5: Discover, member profiles and live chat.
+-- ═════════════════════════════════════════════════════════════
+
+-- Members can see each other's public profile (name, photo, bio, location, website)
+-- unless they've switched off "Show me in Discover". People you're chatting with can
+-- always see each other.
+alter table public.profiles add column if not exists discoverable boolean not null default true;
+
+-- ── Chat tables ──
+create table if not exists public.conversations (
+  id                   uuid primary key default gen_random_uuid(),
+  created_at           timestamptz not null default now(),
+  last_message_at      timestamptz,
+  last_message_preview text
+);
+
+create table if not exists public.conversation_members (
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  user_id         uuid not null references auth.users (id) on delete cascade,
+  last_read_at    timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+create index if not exists conversation_members_user_idx on public.conversation_members (user_id);
+
+create table if not exists public.messages (
+  id              uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations (id) on delete cascade,
+  sender_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body            text not null check (char_length(btrim(body)) between 1 and 4000),
+  created_at      timestamptz not null default now()
+);
+create index if not exists messages_conversation_idx on public.messages (conversation_id, created_at);
+
+-- True when the signed-in person is in that conversation. Security definer so the
+-- check itself isn't blocked by the policies that use it.
+create or replace function public.is_conversation_member(conv uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.conversation_members m
+    where m.conversation_id = conv and m.user_id = auth.uid());
+$$;
+
+alter table public.conversations enable row level security;
+alter table public.conversation_members enable row level security;
+alter table public.messages enable row level security;
+
+drop policy if exists "Conversations: members read" on public.conversations;
+create policy "Conversations: members read" on public.conversations
+  for select to authenticated using (public.is_conversation_member(id));
+
+drop policy if exists "Conversation members: members read" on public.conversation_members;
+create policy "Conversation members: members read" on public.conversation_members
+  for select to authenticated using (public.is_conversation_member(conversation_id));
+
+drop policy if exists "Conversation members: mark own as read" on public.conversation_members;
+create policy "Conversation members: mark own as read" on public.conversation_members
+  for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+revoke update on public.conversation_members from anon, authenticated;
+grant update (last_read_at) on public.conversation_members to authenticated;
+
+drop policy if exists "Messages: members read" on public.messages;
+create policy "Messages: members read" on public.messages
+  for select to authenticated using (public.is_conversation_member(conversation_id));
+
+drop policy if exists "Messages: members send" on public.messages;
+create policy "Messages: members send" on public.messages
+  for insert to authenticated
+  with check (sender_id = (select auth.uid()) and public.is_conversation_member(conversation_id));
+
+-- Start (or reopen) a one-to-one chat with another member. Returns the conversation id.
+create or replace function public.start_conversation(other uuid)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  conv uuid;
+begin
+  if me is null then raise exception 'Log in to send messages'; end if;
+  if other is null or other = me then raise exception 'Choose someone else to message'; end if;
+  if not exists (select 1 from auth.users where id = other) then
+    raise exception 'That member no longer has an account';
+  end if;
+
+  select a.conversation_id into conv
+  from public.conversation_members a
+  join public.conversation_members b on b.conversation_id = a.conversation_id and b.user_id = other
+  where a.user_id = me
+    and (select count(*) from public.conversation_members c where c.conversation_id = a.conversation_id) = 2
+  limit 1;
+
+  if conv is null then
+    insert into public.conversations default values returning id into conv;
+    insert into public.conversation_members (conversation_id, user_id) values (conv, me), (conv, other);
+  end if;
+  return conv;
+end;
+$$;
+revoke all on function public.start_conversation(uuid) from public, anon;
+grant execute on function public.start_conversation(uuid) to authenticated;
+
+-- Keep each conversation's preview fresh, and count your own message as read.
+create or replace function public.on_new_message()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  update public.conversations
+     set last_message_at = new.created_at, last_message_preview = left(new.body, 140)
+   where id = new.conversation_id;
+  update public.conversation_members
+     set last_read_at = new.created_at
+   where conversation_id = new.conversation_id and user_id = new.sender_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_new_message on public.messages;
+create trigger on_new_message
+  after insert on public.messages
+  for each row execute procedure public.on_new_message();
+
+-- How many messages from other people you haven't read yet.
+create or replace function public.unread_message_count()
+returns integer
+language sql
+stable
+set search_path = ''
+as $$
+  select count(*)::int
+  from public.messages m
+  join public.conversation_members cm
+    on cm.conversation_id = m.conversation_id and cm.user_id = auth.uid()
+  where m.sender_id <> auth.uid() and m.created_at > cm.last_read_at;
+$$;
+grant execute on function public.unread_message_count() to authenticated;
+
+-- Profiles readable by other members (defined after the chat tables it refers to).
+drop policy if exists "Profiles: members read public" on public.profiles;
+create policy "Profiles: members read public" on public.profiles
+  for select to authenticated
+  using (
+    discoverable
+    or id = (select auth.uid())
+    or exists (
+      select 1 from public.conversation_members a
+      join public.conversation_members b on b.conversation_id = a.conversation_id
+      where a.user_id = (select auth.uid()) and b.user_id = profiles.id));
+
+-- Send new messages to open chat windows instantly (Supabase Realtime).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages') then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end;
+$$;

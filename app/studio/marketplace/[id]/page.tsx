@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CopyEmail } from "@/components/CopyEmail";
 import { ListingArt, listingCategories } from "@/components/studio/ListingCard";
 import { ListingOwnerActions } from "@/components/studio/ListingOwnerActions";
+import { MessageButton } from "@/components/studio/MessageButton";
 import { kindLabel } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { LISTING_COLUMNS, type Listing } from "@/lib/types";
@@ -60,13 +61,19 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           {mine && <ListingOwnerActions id={listing.id} status={listing.status} />}
           <div className="panel st-next">
             <b className="st-panel-title">{mine ? "How people reach you" : `Contact ${listing.seller_name || "the seller"}`}</b>
+            {!mine && (
+              <>
+                <MessageButton userId={listing.owner_id} label={`Message ${listing.seller_name?.split(" ")[0] || "seller"}`} />
+                <Link className="st-help" href={`/studio/u/${listing.owner_id}`}>View {listing.seller_name || "their"} profile</Link>
+              </>
+            )}
             {listing.contact_email ? (
               <>
-                <p>Email them directly. tsayvish isn’t part of the conversation yet.</p>
+                <p>{mine ? "Members can message you here, or email:" : "Or email them:"}</p>
                 <CopyEmail email={listing.contact_email} />
               </>
             ) : (
-              <p>No contact email on this listing.</p>
+              mine && <p>Members can message you on tsayvish. Add a contact email to show one here too.</p>
             )}
           </div>
         </div>

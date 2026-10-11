@@ -4,6 +4,7 @@ import { ListingCard } from "@/components/studio/ListingCard";
 import { IconPlus } from "@/components/studio/icons";
 import { createClient } from "@/lib/supabase/server";
 import { LISTING_COLUMNS, type Listing } from "@/lib/types";
+import { ALL_CATEGORIES } from "@/lib/topics";
 
 export const metadata: Metadata = { title: "Marketplace" };
 
@@ -17,12 +18,13 @@ const FILTERS = [
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string }>;
+  searchParams: Promise<{ type?: string; q?: string; cat?: string }>;
 }) {
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.type) ? (sp.type as string) : "all";
   // Keep only characters that are safe inside a PostgREST filter.
   const q = (sp.q ?? "").replace(/[^\p{L}\p{N}\s&'-]/gu, " ").trim().slice(0, 60);
+  const cat = sp.cat && ALL_CATEGORIES.includes(sp.cat) ? sp.cat : null;
 
   const supabase = await createClient();
   const {
@@ -33,6 +35,7 @@ export default async function MarketplacePage({
   if (filter === "mine") query = query.eq("owner_id", user!.id);
   else query = query.eq("status", "published");
   if (filter === "character" || filter === "service") query = query.eq("type", filter);
+  if (cat) query = query.contains("categories", [cat]);
   if (q) query = query.or(`title.ilike.%${q}%,summary.ilike.%${q}%,category.ilike.%${q}%,seller_name.ilike.%${q}%`);
   const { data, error } = await query;
   const listings = (data ?? []) as unknown as Listing[];
@@ -41,6 +44,7 @@ export default async function MarketplacePage({
     const params = new URLSearchParams();
     if (key !== "all") params.set("type", key);
     if (q) params.set("q", q);
+    if (cat) params.set("cat", cat);
     const s = params.toString();
     return s ? `/studio/marketplace?${s}` : "/studio/marketplace";
   };
@@ -65,11 +69,18 @@ export default async function MarketplacePage({
         </nav>
         <form className="mk-search" action="/studio/marketplace" role="search">
           {filter !== "all" && <input type="hidden" name="type" value={filter} />}
+          {cat && <input type="hidden" name="cat" value={cat} />}
           <label htmlFor="mk-q" className="visually-hidden">Search listings</label>
           <input className="st-input" id="mk-q" name="q" type="search" defaultValue={q} placeholder="Search listings" />
           <button className="btn ghost" type="submit">Search</button>
         </form>
       </div>
+
+      {cat && (
+        <p className="mk-active-cat">
+          Showing <b>{cat}</b> · <Link href={link(filter).replace(/([?&])cat=[^&]*&?/, "$1").replace(/[?&]$/, "")}>Clear topic</Link>
+        </p>
+      )}
 
       {error ? (
         <p className="form-error" role="alert">

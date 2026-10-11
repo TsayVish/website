@@ -54,7 +54,7 @@ export default async function ProjectPage({
   return (
     <div className="st-stack st-project">
       <div className="st-crumbs">
-        <Link href="/studio">Projects</Link><span>/</span><span>{isOriginal ? "Original" : "Partnership"}</span>
+        <Link href="/studio/projects">Projects</Link><span>/</span><span>{isOriginal ? "Original" : "Partnership"}</span>
       </div>
 
       <div className="st-project-head">

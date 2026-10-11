@@ -19,7 +19,7 @@ export function DeleteProject({ projectId, label }: { projectId: string; label: 
       setBusy(false);
       return;
     }
-    router.push("/studio");
+    router.push("/studio/projects");
     router.refresh();
   }
 
