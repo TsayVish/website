@@ -90,7 +90,10 @@ export const MODELS: ModelDef[] = [
         num_images: Math.min(4, sec(a.params.num_images, 1)),
         output_format: "png",
       };
-      if (a.images.length) input.image_urls = a.images.map((i) => i.url);
+      if (a.images.length) {
+        input.image_urls = a.images.map((i) => i.url);
+        input.prompt = identityPrompt(a.prompt, a.images.length);
+      }
       return { endpoint: a.images.length ? "fal-ai/nano-banana-2/edit" : "fal-ai/nano-banana-2", input };
     },
   },
@@ -196,6 +199,14 @@ export const MODELS: ModelDef[] = [
 export const modelById = (id: string) => MODELS.find((m) => m.id === id);
 export const modelsFor = (tool: Tool) => MODELS.filter((m) => m.tool === tool);
 export const toolLabel = (tool: string) => TOOLS.find((t) => t.key === tool)?.label ?? tool;
+
+/** Keeps the person or character from the reference pictures instead of inventing a new one. */
+export function identityPrompt(prompt: string, refs: number) {
+  const which = refs > 1 ? "the first reference image (the others are extra references)" : "the reference image";
+  return `${prompt.trim()}\n\nThe subject is the exact person or character in ${which}. Keep their identity the same: face, ` +
+    "skin tone, hair, eye shape, age, body type and any distinctive features. Don't replace them with someone else. " +
+    "Only change the scene, pose, outfit or action described above.";
+}
 
 /** Scenes back to back on one video track; each voice line starts with its scene. */
 export function composeInput(timeline: TimelineScene[]) {

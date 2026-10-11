@@ -1477,3 +1477,4 @@ a.st-row:hover{background:var(--st-bg)}
   .adm-bill-row > .st-cell{display:none}
 }
 .adm-filter{justify-self:start}
+.ai-base{display:flex; gap:8px; align-items:center; font-size:.8rem; color:var(--muted)}

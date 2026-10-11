@@ -41,6 +41,9 @@ export function GeneratePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [consent, setConsent] = useState(false);
+  // The character's own picture is the starting point unless the person turns it off.
+  const [useBase, setUseBase] = useState(true);
+  const base = characterImages.find((c) => c.key.startsWith("character:")) ?? characterImages[0];
 
   const opts = cleanParams(model, params);
 
@@ -53,6 +56,11 @@ export function GeneratePanel({
     const c = characterImages.find((x) => x.key === key);
     return c ? { key, kind: "image" as MediaKind, label: c.label, thumb: c.url, durationMs: null } : null;
   }).filter((x): x is NonNullable<typeof x> => !!x);
+  const imageSlots = model.needs.image?.[1] ?? 0;
+  const baseApplies = !!base && useBase && imageSlots > 0 && !picked.some((p) => p.key === base.key)
+    // Models that take a single picture use the base only when nothing else is picked.
+    && (imageSlots > 1 || !picked.some((p) => p.kind === "image"));
+  if (baseApplies) picked.unshift({ key: base.key, kind: "image", label: base.label, thumb: base.url, durationMs: null });
   const usable = picked.filter((p) => (model.needs[p.kind]?.[1] ?? 0) > 0);
   const ignored = picked.length - usable.length;
   // Keep only as many of each kind as the model takes.
@@ -174,12 +182,19 @@ export function GeneratePanel({
                     <img src={p.thumb} alt="" />
                   ) : <span className="ai-chip-icon" aria-hidden="true">{p.kind === "audio" ? "♪" : "▶"}</span>}
                   <span>{p.label}</span>
-                  <button type="button" aria-label={`Remove ${p.label}`} onClick={() => onSelect(selected.filter((k) => k !== p.key))}>×</button>
+                  <button type="button" aria-label={`Remove ${p.label}`}
+                    onClick={() => (base && p.key === base.key && !selected.includes(p.key) ? setUseBase(false) : onSelect(selected.filter((k) => k !== p.key)))}>×</button>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="ai-hint">Pick from the library{characterImages.length ? " or the character’s pictures" : ""}.</p>
+          )}
+          {base && imageSlots > 0 && (
+            <label className="ai-base">
+              <input type="checkbox" checked={useBase} onChange={(e) => setUseBase(e.target.checked)} />
+              <span>Start from the character’s picture{tool === "image" ? " and keep their look" : ""}</span>
+            </label>
           )}
           {ignored > 0 && <p className="ai-hint">{ignored} selected file{ignored > 1 ? "s aren’t" : " isn’t"} used by this tool.</p>}
         </div>

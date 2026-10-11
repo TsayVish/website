@@ -14,7 +14,10 @@ test("catalog: costs, params and request checks", () => {
   assert.deepEqual(cleanParams(img, { aspect_ratio: "9:16", num_images: "9", junk: "x" }), { aspect_ratio: "9:16", num_images: "1" });
   assert.equal(img.cost({ prompt: "x", params: { num_images: "3" }, images: [], audio: [], video: [] }), 24);
   assert.equal(img.build({ prompt: "x", params: {}, images: [], audio: [], video: [] }).endpoint, "fal-ai/nano-banana-2");
-  assert.equal(img.build({ prompt: "x", params: {}, images: [{ kind: "image", url: "https://a/b.png" }], audio: [], video: [] }).endpoint, "fal-ai/nano-banana-2/edit");
+  const edit = img.build({ prompt: "at a desk", params: {}, images: [{ kind: "image", url: "https://a/b.png" }], audio: [], video: [] });
+  assert.equal(edit.endpoint, "fal-ai/nano-banana-2/edit");
+  assert.match(String(edit.input.prompt), /^at a desk\n\nThe subject is the exact person or character in the reference image\. Keep their identity/);
+  assert.equal(img.build({ prompt: "at a desk", params: {}, images: [], audio: [], video: [] }).input.prompt, "at a desk");
 
   const k3 = modelById("kling-3-pro")!;
   assert.equal(k3.cost({ prompt: "x", params: { duration: "10", generate_audio: "on" }, images: [], audio: [], video: [] }), 168);
