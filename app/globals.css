@@ -262,3 +262,7 @@ footer .wrap{display:flex; flex-wrap:wrap; justify-content:space-between; gap:12
   *,*::before,*::after{animation:none !important; transition:none !important}
   html{scroll-behavior:auto}
 }
+
+/* shared form bits */
+.form-error{margin:0; color:var(--danger); font-size:.9rem}
+.btn:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}

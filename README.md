@@ -1,42 +1,60 @@
 # tsayvish website
 
-Marketing site and sign-up / log-in page for tsayvish, an AI-native character studio and platform.
-Built with Next.js (App Router) and TypeScript.
+Marketing site, sign-up / log-in, and the logged-in Studio for tsayvish, an AI-native character studio and platform.
+Built with Next.js (App Router), TypeScript and Supabase (accounts + database).
+
+## One-time setup
+
+1. **Supabase project.** Create one at supabase.com.
+2. **Database.** In Supabase, open **SQL Editor → New query**, paste all of `supabase/schema.sql`, click **Run**.
+3. **Login links.** In Supabase, open **Authentication → URL Configuration**:
+   - **Site URL:** your live site, e.g. `https://tsayvish.com`
+   - **Redirect URLs:** add `https://tsayvish.com/auth/callback`, `https://*.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`
+4. **Keys.** Put `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel (Settings → Environment Variables)
+   and in a local `.env.local` file (see `.env.example`).
 
 ## Run it locally
-
-You need Node.js 18.18 or newer.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open http://localhost:3000. The sign-up / log-in page is at http://localhost:3000/login
-(`/login?mode=login` opens the log-in tab).
+Open http://localhost:3000. Sign up at http://localhost:3000/login.
 
-## Project layout
+## How it fits together
 
-```
-app/
-  layout.tsx        Fonts, metadata and the global stylesheet
-  page.tsx          Home page, assembled from the section components
-  login/page.tsx    Sign-up / log-in route
-  globals.css       Design tokens (colors, type) and home page styles, light + dark
-components/
-  art.tsx           Character artwork: <Critter> for the in-house cast, <CharacterArt> for any kind of character
-  Builder.tsx       Interactive character builder (client component)
-  AuthPanel.tsx     Sign-up / log-in forms (client component) + auth.module.css
-  Nav, Hero, TwoWays, WhyNow, Engine, Cast, Services, Audience, Creators, Contact, Footer
-lib/
-  content.ts        Editable copy and data: the cast, services, builder options, contact email
-```
+| Route | What it is |
+|---|---|
+| `/` | Marketing page with the preview-only character builder |
+| `/login` | Sign up / log in (`?mode=login` opens the log-in tab) |
+| `/auth/callback` | Where email links land (confirm sign-up, reset password) |
+| `/reset-password` | Choose a new password after a reset email |
+| `/studio` | Logged-in home: start an original or a partnership, and see all projects |
+| `/studio/new/original` | Builder that saves a new original project |
+| `/studio/new/partner` | Partnership request with the tsayvish cast |
+| `/studio/p/[id]` | One project: services and their status, or partnership status |
+| `/studio/account` | Name and which option shows first |
 
-Most text changes (cast members, services, builder options, contact email) happen in `lib/content.ts`.
+`middleware.ts` keeps people logged in and sends logged-out visitors from `/studio` to `/login`.
 
-## Not connected yet
+### Data
 
-- **Accounts:** the forms in `components/AuthPanel.tsx` validate input but don't create accounts.
-  Connect an auth provider (for example Clerk, Supabase Auth or Auth.js) where the `TODO` comment is.
-- **Contact email:** `hello@tsayvish.com` in `lib/content.ts` is a placeholder.
-- **Builder:** choices aren't saved; "Create this character" goes to sign-up.
+- **profiles**: name and sign-up choice, created automatically for each new account.
+- **projects**: every project is either an `original` (a character the person owns) or a `partnership`
+  (a request to work with tsayvish cast members). People can have as many as they like.
+- **project_services**: infrastructure switched on for a project: `requested`, `active` or `off`.
+
+Row-level security means each person only ever sees their own rows.
+
+### Running it day to day (the tsayvish team)
+
+In Supabase → **Table Editor**:
+- Mark a service as set up: `project_services` → change `status` to `active`. The creator then sees it as Active and can't switch it off themselves.
+- Move a partnership along: `projects` → change `status` to `in_review`, `approved` or `declined`.
+
+### Where to edit things
+
+- Copy and options (cast, services, builder choices, contact email): `lib/content.ts`
+- Character drawings: `components/art.tsx`
+- Studio styles: `app/studio/studio.css`; everything else: `app/globals.css`

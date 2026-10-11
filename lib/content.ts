@@ -80,3 +80,18 @@ export const INFRA: { name: string; detail: string; on: boolean }[] = [
   { name: "Media budget", detail: "Paid amplification · reporting", on: false },
   { name: "Live events", detail: "Pop-ups · appearances · drops", on: false },
 ];
+
+export const PARTNER_INTERESTS = ["Brand partnership", "Licensing", "Manufacturing", "Something else"] as const;
+export type PartnerInterest = (typeof PARTNER_INTERESTS)[number];
+
+export function colorValue(name: string | null | undefined) {
+  return (COLORS.find((c) => c.name === name) ?? COLORS[0]).value;
+}
+
+export function moodByName(name: string | null | undefined) {
+  return MOODS.find((m) => m.name === name) ?? MOODS[0];
+}
+
+export function castByName(name: string) {
+  return CAST.find((c) => c.name === name);
+}

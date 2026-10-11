@@ -50,3 +50,5 @@
   .crew svg, .crew svg:nth-child(2){width:64px}
 }
 @media (prefers-reduced-motion: reduce){ .crew svg{animation:none} .submit{transition:none} }
+.hint{color:var(--muted); font-size:.8rem}
+.submit:disabled, .linkBtn:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}
