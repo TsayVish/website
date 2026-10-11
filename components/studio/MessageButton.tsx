@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 /** Opens (or starts) a one-to-one chat with another member. */
-export function MessageButton({ userId, label = "Message", className = "btn" }: { userId: string; label?: string; className?: string }) {
+export function MessageButton({ userId, label = "Message", className = "btn", draft }: { userId: string; label?: string; className?: string; draft?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export function MessageButton({ userId, label = "Message", className = "btn" }: 
       setBusy(false);
       return setError(err?.message ?? "Couldn’t open the chat.");
     }
-    router.push(`/studio/messages/${data as string}`);
+    router.push(`/studio/messages/${data as string}${draft ? `?draft=${encodeURIComponent(draft)}` : ""}`);
   }
 
   return (

@@ -868,3 +868,183 @@ $$;
 alter table public.projects drop constraint if exists projects_original_fields;
 alter table public.projects add constraint projects_original_fields check (
   type <> 'original' or (kind is not null and color is not null));
+
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- Update 8: offers on Marketplace listings, and notifications.
+-- Safe to run again.
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ── Offers ──
+create table if not exists public.offers (
+  id           uuid primary key default gen_random_uuid(),
+  listing_id   uuid not null references public.listings (id) on delete cascade,
+  buyer_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  seller_id    uuid references auth.users (id) on delete cascade,   -- set from the listing, never by the client
+  amount       numeric(12, 2) not null check (amount > 0 and amount <= 10000000),
+  message      text check (message is null or char_length(message) <= 1000),
+  status       text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'withdrawn')),
+  created_at   timestamptz not null default now(),
+  responded_at timestamptz
+);
+create index if not exists offers_seller_idx on public.offers (seller_id, created_at desc);
+create index if not exists offers_buyer_idx on public.offers (buyer_id, created_at desc);
+create index if not exists offers_listing_idx on public.offers (listing_id, created_at desc);
+-- One open offer per buyer per listing.
+create unique index if not exists offers_one_pending on public.offers (listing_id, buyer_id) where status = 'pending';
+
+alter table public.offers enable row level security;
+drop policy if exists "Offers: buyer or seller read" on public.offers;
+create policy "Offers: buyer or seller read" on public.offers
+  for select to authenticated using (buyer_id = (select auth.uid()) or seller_id = (select auth.uid()));
+drop policy if exists "Offers: make as yourself" on public.offers;
+create policy "Offers: make as yourself" on public.offers
+  for insert to authenticated with check (buyer_id = (select auth.uid()) and status = 'pending');
+-- Status changes only through respond_to_offer / withdraw_offer below.
+revoke update, delete on public.offers from anon, authenticated;
+
+create or replace function public.prepare_offer()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare l record;
+begin
+  select owner_id, status into l from public.listings where id = new.listing_id;
+  if l.owner_id is null or l.status <> 'published' then raise exception 'That listing isn’t available'; end if;
+  if l.owner_id = new.buyer_id then raise exception 'You can’t make an offer on your own listing'; end if;
+  if public.is_blocked_between(l.owner_id, new.buyer_id) then raise exception 'You can’t make an offer on this listing'; end if;
+  new.seller_id := l.owner_id;
+  new.status := 'pending';
+  new.responded_at := null;
+  return new;
+end;
+$$;
+drop trigger if exists prepare_offer on public.offers;
+create trigger prepare_offer before insert on public.offers
+  for each row execute procedure public.prepare_offer();
+
+create or replace function public.respond_to_offer(offer uuid, decision text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if decision not in ('accepted', 'declined') then raise exception 'Unknown decision'; end if;
+  update public.offers set status = decision, responded_at = now()
+  where id = offer and seller_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'That offer is no longer open'; end if;
+end;
+$$;
+revoke all on function public.respond_to_offer(uuid, text) from public, anon;
+grant execute on function public.respond_to_offer(uuid, text) to authenticated;
+
+create or replace function public.withdraw_offer(offer uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  update public.offers set status = 'withdrawn', responded_at = now()
+  where id = offer and buyer_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'That offer is no longer open'; end if;
+end;
+$$;
+revoke all on function public.withdraw_offer(uuid) from public, anon;
+grant execute on function public.withdraw_offer(uuid) to authenticated;
+
+-- ── Notifications: written only by the triggers below ──
+create table if not exists public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  type       text not null check (type in ('offer_received', 'offer_accepted', 'offer_declined', 'offer_withdrawn', 'new_follower')),
+  actor_id   uuid references auth.users (id) on delete cascade,
+  offer_id   uuid references public.offers (id) on delete cascade,
+  listing_id uuid references public.listings (id) on delete cascade,
+  read_at    timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+alter table public.notifications enable row level security;
+drop policy if exists "Notifications: read own" on public.notifications;
+create policy "Notifications: read own" on public.notifications
+  for select to authenticated using (user_id = (select auth.uid()));
+drop policy if exists "Notifications: mark own read" on public.notifications;
+create policy "Notifications: mark own read" on public.notifications
+  for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "Notifications: clear own" on public.notifications;
+create policy "Notifications: clear own" on public.notifications
+  for delete to authenticated using (user_id = (select auth.uid()));
+revoke insert, update on public.notifications from anon, authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+create or replace function public.notify_offer()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+    values (new.seller_id, 'offer_received', new.buyer_id, new.id, new.listing_id);
+  elsif new.status is distinct from old.status then
+    if new.status in ('accepted', 'declined') then
+      insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+      values (new.buyer_id, 'offer_' || new.status, new.seller_id, new.id, new.listing_id);
+    elsif new.status = 'withdrawn' then
+      insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+      values (new.seller_id, 'offer_withdrawn', new.buyer_id, new.id, new.listing_id);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists notify_offer on public.offers;
+create trigger notify_offer after insert or update on public.offers
+  for each row execute procedure public.notify_offer();
+
+create or replace function public.notify_follow()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  insert into public.notifications (user_id, type, actor_id) values (new.creator_id, 'new_follower', new.follower_id);
+  return new;
+end;
+$$;
+drop trigger if exists notify_follow on public.follows;
+create trigger notify_follow after insert on public.follows
+  for each row execute procedure public.notify_follow();
+
+create or replace function public.unread_notification_count()
+returns integer
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select count(*)::int from public.notifications where user_id = auth.uid() and read_at is null;
+$$;
+revoke all on function public.unread_notification_count() from public, anon;
+grant execute on function public.unread_notification_count() to authenticated;
+
+-- Live badge updates.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end;
+$$;
+
+-- People you trade offers with, or who follow you, can be named in your notifications.
+drop policy if exists "Profiles: offer parties and followers read" on public.profiles;
+create policy "Profiles: offer parties and followers read" on public.profiles
+  for select to authenticated using (
+    exists (select 1 from public.offers o
+            where (o.buyer_id = profiles.id and o.seller_id = (select auth.uid()))
+               or (o.seller_id = profiles.id and o.buyer_id = (select auth.uid())))
+    or exists (select 1 from public.follows f
+               where f.follower_id = profiles.id and f.creator_id = (select auth.uid())));

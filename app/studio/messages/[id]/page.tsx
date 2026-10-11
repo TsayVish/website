@@ -7,8 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Messages" };
 
-export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ConversationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ draft?: string }> }) {
   const { id } = await params;
+  const draft = ((await searchParams).draft ?? "").slice(0, 500);
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,7 +32,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   return (
     <div className="chat chat-open">
       <ConversationList items={items} currentId={id} />
-      <ChatThread key={id} conversationId={id} me={user!.id} other={current.other} initial={initial} blocked={Boolean(block)} />
+      <ChatThread key={id} conversationId={id} me={user!.id} other={current.other} initial={initial} blocked={Boolean(block)} initialDraft={draft} />
     </div>
   );
 }

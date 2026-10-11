@@ -22,17 +22,18 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: 
 
 /** One conversation: messages arrive live, and sending shows instantly. */
 export function ChatThread({
-  conversationId, me, other, initial, blocked = false,
+  conversationId, me, other, initial, blocked = false, initialDraft = "",
 }: {
   conversationId: string;
   me: string;
   other: Member | null;
   initial: ChatMessage[];
   blocked?: boolean;
+  initialDraft?: string;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialDraft);
   const [error, setError] = useState("");
   const [live, setLive] = useState(false);
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
@@ -68,6 +69,15 @@ export function ChatThread({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, me]);
+
+  // Arriving with a draft (e.g. from an offer): put the cursor at the end, ready to finish it.
+  useEffect(() => {
+    const el = input.current;
+    if (!initialDraft || !el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep the newest message in view.
   useLayoutEffect(() => {
