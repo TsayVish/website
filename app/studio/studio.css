@@ -65,15 +65,26 @@
 .st-stack{display:grid; gap:28px}
 .st-narrow{max-width:620px}
 
+/* sidebar frame: always open on wide screens */
+.st-side-top{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.st-side-body{display:flex; flex-direction:column; gap:28px; flex:1; min-height:0}
+.st-burger, .st-scrim{display:none}
+
+/* phones and small tablets: top bar + menu button */
 @media (max-width:860px){
   .st{grid-template-columns:1fr}
-  .st-side{position:static; height:auto; flex-direction:row; flex-wrap:wrap; align-items:center; gap:10px 16px; padding:12px 16px; border-right:0; border-bottom:1px solid var(--st-hair)}
-  .st-nav{display:flex; flex-wrap:wrap; gap:2px; order:3; flex-basis:100%}
-  .st-nav-label{display:none}
-  .st-user{margin:0 0 0 auto; padding:0; border:0; display:flex; align-items:center}
-  .st-user-name, .st-user-mail{display:none}
+  .st-side{position:sticky; top:env(safe-area-inset-top, 0px); z-index:30; height:auto; gap:0; padding:10px 16px; border-right:0; border-bottom:1px solid var(--st-hair)}
+  .st-side .logo{padding-inline:0}
+  .st-burger{display:inline-grid; place-items:center; width:40px; height:40px; border-radius:10px; border:1px solid var(--st-hair); background:var(--st-panel); color:var(--ink); cursor:pointer; padding:0}
+  .st-burger svg{width:20px; height:20px}
+  .st-side-body{display:none}
+  .st-side-body[data-open="true"]{display:flex; position:absolute; left:0; right:0; top:100%; z-index:31; gap:18px; padding:14px 16px 20px; background:var(--st-panel); border-bottom:1px solid var(--st-hair); box-shadow:0 18px 40px color-mix(in srgb, var(--ink) 18%, transparent); max-height:calc(100dvh - 70px); overflow-y:auto}
+  .st-side-body .st-nav a{padding:12px 10px; font-size:1rem}
+  .st-nav-label{padding-top:2px}
+  .st-scrim{display:block; position:fixed; inset:0; z-index:29; border:0; padding:0; background:color-mix(in srgb, var(--ink) 30%, transparent); cursor:default}
   .st-main{padding-top:24px}
 }
+body.st-menu-open{overflow:hidden}
 
 /* page header */
 .st-pagehead{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px}
@@ -278,8 +289,8 @@ select.st-input{appearance:auto; padding-block:8px}
 .st-me .st-user-mail{margin-top:0}
 .st-user{gap:8px}
 @media (max-width:860px){
-  .st-nav-bottom{margin:0}
-  .st-me{display:none}
+  .st-user{margin-top:0}
+  .st-nav-bottom a{padding:12px 10px; font-size:1rem}
 }
 
 /* settings */
