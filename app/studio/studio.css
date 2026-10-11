@@ -661,3 +661,12 @@ a.st-row:hover{background:var(--st-bg)}
 .hub-stats{grid-template-columns:repeat(auto-fit, minmax(min(100%, 130px), 1fr))}
 .st .pe-title{font:600 1.5rem/1.25 var(--body); letter-spacing:-.02em; border:0; padding:0; background:none}
 .st .pe-body{font:400 1rem/1.65 var(--body); border:0; padding:0; background:none}
+
+/* Creator hub sections: a horizontal tab bar above the page at every width. */
+.hub{grid-template-columns:minmax(0,1fr); gap:24px}
+.hub-nav{position:static; display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--st-hair); padding:0}
+.hub-nav::-webkit-scrollbar{display:none}
+.hub-nav-title{display:none}
+.hub-nav a{flex:none; border-radius:0; padding:10px 12px 11px; margin-bottom:-1px; border-bottom:2px solid transparent; background:none}
+.hub-nav a:hover{background:none; color:var(--ink)}
+.hub-nav a[aria-current="page"]{background:none; box-shadow:none; color:var(--ink); border-bottom-color:var(--ink)}

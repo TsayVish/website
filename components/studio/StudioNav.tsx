@@ -9,10 +9,10 @@ import { IconChat, IconCompass, IconDashboard, IconGear, IconGrid, IconHandshake
 type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: boolean };
 
 const MAIN: NavLink[] = [
+  { href: "/studio/hub", label: "Creator hub", icon: <IconDashboard />, match: (p) => p.startsWith("/studio/hub") || p.startsWith("/studio/posts/") },
   { href: "/studio", label: "Discover", icon: <IconCompass />, match: (p) => p === "/studio" || p.startsWith("/studio/u/") },
   { href: "/studio/search", label: "Search", icon: <IconSearch />, match: (p) => p.startsWith("/studio/search") },
   { href: "/studio/messages", label: "Messages", icon: <IconChat />, match: (p) => p.startsWith("/studio/messages"), badge: true },
-  { href: "/studio/hub", label: "Creator hub", icon: <IconDashboard />, match: (p) => p.startsWith("/studio/hub") || p.startsWith("/studio/posts/") },
   { href: "/studio/projects", label: "Projects", icon: <IconGrid />, match: (p) => p.startsWith("/studio/projects") || p.startsWith("/studio/p/") },
   { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") },
 ];
