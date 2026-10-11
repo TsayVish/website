@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChatThread } from "@/components/studio/chat/ChatThread";
 import { ConversationList } from "@/components/studio/chat/ConversationList";
+import { LiveRefresh } from "@/components/studio/LiveRefresh";
 import { MESSAGE_COLUMNS, loadConversations, type ChatMessage } from "@/lib/chat";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,6 +32,7 @@ export default async function ConversationPage({ params, searchParams }: { param
 
   return (
     <div className="chat chat-open">
+      <LiveRefresh table="messages" ignoreSender={user!.id} />
       <ConversationList items={items} currentId={id} />
       <ChatThread key={id} conversationId={id} me={user!.id} other={current.other} initial={initial} blocked={Boolean(block)} initialDraft={draft} />
     </div>

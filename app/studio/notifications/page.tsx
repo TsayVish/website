@@ -5,6 +5,7 @@ import { Avatar } from "@/components/studio/Avatar";
 import { EmptyState } from "@/components/studio/hub/EmptyState";
 import { HubTabs } from "@/components/studio/hub/HubNav";
 import { IconBell } from "@/components/studio/icons";
+import { LiveRefresh } from "@/components/studio/LiveRefresh";
 import { MarkNotificationsRead } from "@/components/studio/offers/MarkNotificationsRead";
 import { OfferActions } from "@/components/studio/offers/OfferActions";
 import {
@@ -123,6 +124,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   return (
     <div className="st-stack">
       <MarkNotificationsRead me={me} unread={unreadCount} />
+      <LiveRefresh table="notifications" filter={`user_id=eq.${me}`} />
       <div className="st-pagehead"><div><h1>Notifications</h1><p className="st-sub">Offers, replies and new followers.</p></div></div>
       <HubTabs current={tab} tabs={[
         { key: "all", label: "All", href: "/studio/notifications" },

@@ -79,6 +79,37 @@ export function ChatThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Catch up on anything missed: when the tab comes back into view, and every 5s while not live.
+  useEffect(() => {
+    const catchUp = async () => {
+      const { data } = await createClient()
+        .from("messages")
+        .select(MESSAGE_COLUMNS)
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const fresh = ((data ?? []) as ChatMessage[]).reverse();
+      if (!fresh.length) return;
+      let added = false;
+      setMessages((prev) => {
+        const known = new Set(prev.map((m) => m.id));
+        const extra = fresh.filter((m) => !known.has(m.id) && !prev.some((x) => x.id.startsWith("tmp-") && x.body === m.body && x.sender_id === m.sender_id));
+        if (!extra.length) return prev;
+        added = extra.some((m) => m.sender_id !== me);
+        return [...prev, ...extra].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+      });
+      if (added) markRead();
+    };
+    const onVisible = () => document.visibilityState === "visible" && catchUp();
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = live ? null : setInterval(catchUp, 5000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (poll) clearInterval(poll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, live]);
+
   // Keep the newest message in view.
   useLayoutEffect(() => {
     const el = scroller.current;
