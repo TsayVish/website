@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { Avatar } from "@/components/studio/Avatar";
+import { ThemeButton } from "@/components/ThemeToggle";
 import { SignOutButton } from "@/components/studio/SignOutButton";
 import { SettingsLink, StudioNav } from "@/components/studio/StudioNav";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +36,10 @@ export default async function StudioLayout({ children }: { children: React.React
               <span className="st-user-mail">{user.email}</span>
             </span>
           </Link>
-          <SignOutButton />
+          <div className="st-user-actions">
+            <SignOutButton />
+            <ThemeButton className="theme-btn st-theme" />
+          </div>
         </div>
       </aside>
       <main className="st-main">{children}</main>

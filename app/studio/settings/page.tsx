@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { EmailForm } from "@/components/studio/settings/EmailForm";
 import { PasswordForm } from "@/components/studio/settings/PasswordForm";
 import { ProfileForm } from "@/components/studio/settings/ProfileForm";
+import { ThemeSwitch } from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -37,6 +38,7 @@ export default async function SettingsPage() {
         <a href="#profile">Profile</a>
         <a href="#email">Email</a>
         <a href="#password">Password</a>
+        <a href="#appearance">Appearance</a>
       </nav>
       <ProfileForm
         userId={user!.id}
@@ -51,6 +53,13 @@ export default async function SettingsPage() {
       />
       <EmailForm current={user!.email ?? ""} pending={user!.new_email} />
       <PasswordForm hasPassword={hasPassword} />
+      <section className="panel" id="appearance" aria-labelledby="appearance-title">
+        <div className="st-set-head">
+          <h2 id="appearance-title">Appearance</h2>
+          <p className="st-muted">Choose light or dark, or follow your device. Saved in this browser.</p>
+        </div>
+        <ThemeSwitch />
+      </section>
     </div>
   );
 }
