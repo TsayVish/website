@@ -24,11 +24,14 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     .order("created_at", { ascending: false })
     .limit(200);
   const initial = ((data ?? []) as ChatMessage[]).reverse();
+  const { data: block } = current.other
+    ? await supabase.from("blocks").select("blocked_id").eq("blocker_id", user!.id).eq("blocked_id", current.other.id).maybeSingle()
+    : { data: null };
 
   return (
     <div className="chat chat-open">
       <ConversationList items={items} currentId={id} />
-      <ChatThread key={id} conversationId={id} me={user!.id} other={current.other} initial={initial} />
+      <ChatThread key={id} conversationId={id} me={user!.id} other={current.other} initial={initial} blocked={Boolean(block)} />
     </div>
   );
 }

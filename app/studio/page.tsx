@@ -8,6 +8,7 @@ import { MemberRow } from "@/components/studio/discover/MemberRow";
 import { SearchBar } from "@/components/studio/discover/SearchBar";
 import { TopicIcon } from "@/components/studio/discover/TopicIcon";
 import { CAST } from "@/lib/content";
+import { POST_COLUMNS, fmtDate, type Post } from "@/lib/hub";
 import { MEMBER_COLUMNS, type Member } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
 import { ALL_CATEGORIES, TOPICS } from "@/lib/topics";
@@ -48,6 +49,18 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
   const { data: peopleRows } = await peopleQuery;
   const people = (peopleRows ?? []) as unknown as Member[];
 
+  // Latest posts from people you follow.
+  const { data: followRows } = await supabase.from("follows").select("creator_id").eq("follower_id", user!.id);
+  const followed = ((followRows ?? []) as { creator_id: string }[]).map((f) => f.creator_id);
+  const [{ data: feedRows }, { data: authorRows }] = followed.length && !topic
+    ? await Promise.all([
+        supabase.from("posts").select(POST_COLUMNS).in("owner_id", followed).eq("status", "published").order("published_at", { ascending: false }).limit(6),
+        supabase.from("profiles").select("id, full_name").in("id", followed),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const feed = (feedRows ?? []) as Post[];
+  const authorName = new Map(((authorRows ?? []) as { id: string; full_name: string | null }[]).map((a) => [a.id, a.full_name]));
+
   const firstName = (me as { full_name: string | null } | null)?.full_name?.split(" ")[0];
   const chip = (t: string | null) => (t ? `/studio?topic=${encodeURIComponent(t)}` : "/studio");
 
@@ -69,6 +82,21 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
         <p className="form-error" role="alert">
           Couldn’t load Discover: {listingError.message}. Run the latest supabase/schema.sql in the Supabase SQL Editor.
         </p>
+      )}
+
+      {feed.length > 0 && (
+        <section className="dc-section" aria-labelledby="dc-feed">
+          <div className="dc-head"><h2 id="dc-feed">From creators you follow</h2></div>
+          <div className="post-list post-list-grid">
+            {feed.map((p) => (
+              <Link key={p.id} href={`/studio/posts/${p.id}`} className="post-card">
+                <span className="post-card-meta">{authorName.get(p.owner_id) || "Creator"} · {fmtDate(p.published_at)}</span>
+                <b>{p.title}</b>
+                {p.body && <span className="post-card-text">{p.body.slice(0, 160)}</span>}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <section className="dc-section" aria-labelledby="dc-creators">

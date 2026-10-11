@@ -4,6 +4,7 @@ import { CopyEmail } from "@/components/CopyEmail";
 import { ListingArt, listingCategories } from "@/components/studio/ListingCard";
 import { ListingOwnerActions } from "@/components/studio/ListingOwnerActions";
 import { MessageButton } from "@/components/studio/MessageButton";
+import { ReportButton } from "@/components/studio/social/ReportButton";
 import { kindLabel } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
 import { LISTING_COLUMNS, type Listing } from "@/lib/types";
@@ -76,6 +77,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               mine && <p>Members can message you on tsayvish. Add a contact email to show one here too.</p>
             )}
           </div>
+          {!mine && <ReportButton targetType="listing" targetId={listing.id} targetLabel={listing.title} label="Report this listing" />}
         </div>
       </div>
     </div>

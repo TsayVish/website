@@ -558,3 +558,255 @@ begin
   end if;
 end;
 $$;
+
+-- ═════════════════════════════════════════════════════════════
+-- Update 6: Creator hub. Follows, posts, reports, blocks and discount codes.
+-- ═════════════════════════════════════════════════════════════
+
+-- ── Follows: members follow creators ──
+create table if not exists public.follows (
+  follower_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  creator_id  uuid not null references auth.users (id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (follower_id, creator_id),
+  check (follower_id <> creator_id)
+);
+create index if not exists follows_creator_idx on public.follows (creator_id, created_at desc);
+
+alter table public.follows enable row level security;
+
+-- Follower counts are public to members, like on most social platforms.
+drop policy if exists "Follows: members read" on public.follows;
+create policy "Follows: members read" on public.follows for select to authenticated using (true);
+drop policy if exists "Follows: follow as yourself" on public.follows;
+create policy "Follows: follow as yourself" on public.follows
+  for insert to authenticated with check (follower_id = (select auth.uid()));
+drop policy if exists "Follows: unfollow as yourself" on public.follows;
+create policy "Follows: unfollow as yourself" on public.follows
+  for delete to authenticated using (follower_id = (select auth.uid()));
+
+-- ── Posts: updates creators publish to everyone or to their followers ──
+create table if not exists public.posts (
+  id           uuid primary key default gen_random_uuid(),
+  owner_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title        text not null check (char_length(title) between 1 and 140),
+  body         text not null default '' check (char_length(body) <= 20000),
+  visibility   text not null default 'public' check (visibility in ('public', 'followers')),
+  status       text not null default 'draft' check (status in ('draft', 'published')),
+  project_id   uuid references public.projects (id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  published_at timestamptz
+);
+create index if not exists posts_owner_idx on public.posts (owner_id, created_at desc);
+create index if not exists posts_published_idx on public.posts (status, published_at desc);
+
+alter table public.posts enable row level security;
+
+drop policy if exists "Posts: owner manages" on public.posts;
+create policy "Posts: owner manages" on public.posts
+  for all to authenticated
+  using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
+
+drop policy if exists "Posts: members read published" on public.posts;
+create policy "Posts: members read published" on public.posts
+  for select to authenticated
+  using (status = 'published' and (
+    visibility = 'public'
+    or exists (select 1 from public.follows f
+               where f.creator_id = posts.owner_id and f.follower_id = (select auth.uid()))));
+
+create or replace function public.touch_post()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  if new.status = 'published' and new.published_at is null then new.published_at = now(); end if;
+  if new.status = 'draft' then new.published_at = null; end if;
+  return new;
+end;
+$$;
+drop trigger if exists touch_post on public.posts;
+create trigger touch_post before insert or update on public.posts
+  for each row execute procedure public.touch_post();
+
+-- ── Blocks: stop someone from messaging you ──
+create table if not exists public.blocks (
+  blocker_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  blocked_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "Blocks: own" on public.blocks;
+create policy "Blocks: own" on public.blocks
+  for all to authenticated
+  using (blocker_id = (select auth.uid())) with check (blocker_id = (select auth.uid()));
+
+-- True when either person has blocked the other.
+create or replace function public.is_blocked_between(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (select 1 from public.blocks
+                 where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a));
+$$;
+
+-- No new chats with someone who has blocked you (or whom you blocked).
+create or replace function public.start_conversation(other uuid)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  conv uuid;
+begin
+  if me is null then raise exception 'Log in to send messages'; end if;
+  if other is null or other = me then raise exception 'Choose someone else to message'; end if;
+  if not exists (select 1 from auth.users where id = other) then
+    raise exception 'That member no longer has an account';
+  end if;
+  if public.is_blocked_between(me, other) then
+    raise exception 'You can’t message this member';
+  end if;
+
+  select a.conversation_id into conv
+  from public.conversation_members a
+  join public.conversation_members b on b.conversation_id = a.conversation_id and b.user_id = other
+  where a.user_id = me
+    and (select count(*) from public.conversation_members c where c.conversation_id = a.conversation_id) = 2
+  limit 1;
+
+  if conv is null then
+    insert into public.conversations default values returning id into conv;
+    insert into public.conversation_members (conversation_id, user_id) values (conv, me), (conv, other);
+  end if;
+  return conv;
+end;
+$$;
+
+-- No new messages in a chat where either side has blocked the other.
+drop policy if exists "Messages: members send" on public.messages;
+create policy "Messages: members send" on public.messages
+  for insert to authenticated
+  with check (
+    sender_id = (select auth.uid())
+    and public.is_conversation_member(conversation_id)
+    and not exists (
+      select 1 from public.conversation_members o
+      where o.conversation_id = messages.conversation_id
+        and o.user_id <> (select auth.uid())
+        and public.is_blocked_between((select auth.uid()), o.user_id)));
+
+-- ── Reports: flag a profile, listing, post or message for review ──
+create table if not exists public.reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  target_type  text not null check (target_type in ('profile', 'listing', 'post', 'message')),
+  target_id    uuid not null,
+  target_owner uuid references auth.users (id) on delete cascade,
+  target_label text check (target_label is null or char_length(target_label) <= 200),
+  reason       text not null check (reason in ('Spam', 'Harassment', 'Stolen or copied work', 'Inappropriate content', 'Scam or fraud', 'Something else')),
+  details      text check (details is null or char_length(details) <= 1000),
+  status       text not null default 'open' check (status in ('open', 'resolved', 'dismissed')),
+  created_at   timestamptz not null default now()
+);
+create index if not exists reports_owner_idx on public.reports (target_owner, created_at desc);
+
+alter table public.reports enable row level security;
+
+-- Reporters see their own reports. Creators see reports about their content only through
+-- the two functions below, which never reveal who filed them. The tsayvish team reviews
+-- everything in the Table Editor.
+drop policy if exists "Reports: file" on public.reports;
+create policy "Reports: file" on public.reports
+  for insert to authenticated with check (reporter_id = (select auth.uid()) and status = 'open');
+drop policy if exists "Reports: read own or about you" on public.reports;
+drop policy if exists "Reports: read own" on public.reports;
+create policy "Reports: read own" on public.reports
+  for select to authenticated using (reporter_id = (select auth.uid()));
+drop policy if exists "Reports: creators resolve" on public.reports;
+revoke update on public.reports from anon, authenticated;
+
+-- Work out whose content was reported from the item itself (never trust the client).
+create or replace function public.set_report_owner()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  new.target_owner := case new.target_type
+    when 'profile' then (select u.id from auth.users u where u.id = new.target_id)
+    when 'listing' then (select l.owner_id from public.listings l where l.id = new.target_id)
+    when 'post'    then (select p.owner_id from public.posts p where p.id = new.target_id)
+    when 'message' then (select m.sender_id from public.messages m where m.id = new.target_id
+                         and public.is_conversation_member(m.conversation_id))
+  end;
+  if new.target_owner is null then raise exception 'That item no longer exists'; end if;
+  if new.target_owner = new.reporter_id then raise exception 'You can’t report your own content'; end if;
+  return new;
+end;
+$$;
+drop trigger if exists set_report_owner on public.reports;
+create trigger set_report_owner before insert on public.reports
+  for each row execute procedure public.set_report_owner();
+
+create or replace function public.reports_about_me()
+returns table (id uuid, target_type text, target_id uuid, target_label text, reason text,
+               details text, status text, created_at timestamptz)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select r.id, r.target_type, r.target_id, r.target_label, r.reason, r.details, r.status, r.created_at
+  from public.reports r
+  where r.target_owner = auth.uid()
+  order by r.created_at desc
+  limit 200;
+$$;
+revoke all on function public.reports_about_me() from public, anon;
+grant execute on function public.reports_about_me() to authenticated;
+
+create or replace function public.set_report_status(report uuid, new_status text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new_status not in ('open', 'resolved', 'dismissed') then raise exception 'Unknown status'; end if;
+  update public.reports set status = new_status
+  where id = report and target_owner = auth.uid();
+  if not found then raise exception 'Report not found'; end if;
+end;
+$$;
+revoke all on function public.set_report_status(uuid, text) from public, anon;
+grant execute on function public.set_report_status(uuid, text) to authenticated;
+
+-- ── Discount codes (saved now, applied once storefront checkout launches) ──
+create table if not exists public.promo_codes (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  code        text not null check (code ~ '^[A-Z0-9_-]{3,24}$'),
+  percent_off integer not null check (percent_off between 1 and 90),
+  listing_id  uuid references public.listings (id) on delete cascade,
+  max_uses    integer check (max_uses is null or max_uses between 1 and 100000),
+  expires_on  date,
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  unique (owner_id, code)
+);
+alter table public.promo_codes enable row level security;
+drop policy if exists "Promo codes: own" on public.promo_codes;
+create policy "Promo codes: own" on public.promo_codes
+  for all to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (
+    owner_id = (select auth.uid())
+    and (listing_id is null or exists (
+      select 1 from public.listings l where l.id = listing_id and l.owner_id = (select auth.uid()))));

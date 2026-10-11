@@ -20,12 +20,13 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: 
 
 /** One conversation: messages arrive live, and sending shows instantly. */
 export function ChatThread({
-  conversationId, me, other, initial,
+  conversationId, me, other, initial, blocked = false,
 }: {
   conversationId: string;
   me: string;
   other: Member | null;
   initial: ChatMessage[];
+  blocked?: boolean;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
@@ -85,7 +86,11 @@ export function ChatThread({
     if (err || !data) {
       setMessages((prev) => prev.filter((m) => m.id !== temp.id));
       setText(body);
-      setError(`Couldn’t send: ${err?.message ?? "please try again."}`);
+      setError(
+        err?.message.includes("row-level security")
+          ? "You can’t message this person right now."
+          : `Couldn’t send: ${err?.message ?? "please try again."}`,
+      );
       return;
     }
     const saved = data as ChatMessage;
@@ -133,6 +138,9 @@ export function ChatThread({
         })}
       </div>
 
+      {blocked ? (
+        <p className="chat-blocked">You’ve blocked {name.split(" ")[0]}. {other && <Link href={`/studio/u/${other.id}`}>Unblock on their profile</Link>}</p>
+      ) : (
       <form className="chat-compose" onSubmit={send}>
         <label htmlFor="chat-input" className="visually-hidden">Message {name}</label>
         <textarea
@@ -143,6 +151,7 @@ export function ChatThread({
         />
         <button className="btn" type="submit" disabled={!text.trim()}>Send</button>
       </form>
+      )}
       {error && <p className="form-error chat-error" role="alert">{error}</p>}
     </section>
   );
