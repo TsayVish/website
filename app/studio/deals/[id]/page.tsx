@@ -51,7 +51,8 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="st-stack dl-page">
       <div className="st-crumbs">
-        <Link href={iAmSeller ? "/studio/deals?tab=sales" : "/studio/deals"}>{iAmSeller ? "Sales" : "Purchases"}</Link><span>/</span><span>{title}</span>
+        <Link href="/studio/marketplace">Marketplace</Link><span>/</span>
+        <Link href={iAmSeller ? "/studio/marketplace?type=sales" : "/studio/marketplace?type=purchases"}>{iAmSeller ? "Sales" : "Purchases"}</Link><span>/</span><span>{title}</span>
       </div>
 
       <section className={`dl-hero ${offer.paid_at ? "is-paid" : ""}`}>

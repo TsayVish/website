@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ListingCard } from "@/components/studio/ListingCard";
+import { DealsTable } from "@/components/studio/deals/DealsTable";
+import { loadDeals } from "@/lib/deals";
 import { IconPlus } from "@/components/studio/icons";
 import { createClient } from "@/lib/supabase/server";
 import { LISTING_COLUMNS, type Listing } from "@/lib/types";
@@ -13,6 +15,8 @@ const FILTERS = [
   { key: "character", label: "Characters" },
   { key: "service", label: "Services" },
   { key: "mine", label: "My listings" },
+  { key: "purchases", label: "Purchases" },
+  { key: "sales", label: "Sales" },
 ] as const;
 
 export default async function MarketplacePage({
@@ -37,14 +41,17 @@ export default async function MarketplacePage({
   if (filter === "character" || filter === "service") query = query.eq("type", filter);
   if (cat) query = query.contains("categories", [cat]);
   if (q) query = query.or(`title.ilike.%${q}%,summary.ilike.%${q}%,category.ilike.%${q}%,seller_name.ilike.%${q}%`);
-  const [{ data, error }, { data: boughtRows }] = await Promise.all([
-    query,
+  const dealsTab = filter === "purchases" || filter === "sales" ? filter : null;
+  const [{ data, error }, { data: boughtRows }, deals] = await Promise.all([
+    dealsTab ? Promise.resolve({ data: [], error: null }) : query,
     supabase.from("offers").select("listing_id").eq("buyer_id", user!.id).eq("status", "accepted"),
+    dealsTab ? loadDeals(supabase, dealsTab === "sales" ? { seller: user!.id } : { buyer: user!.id }) : Promise.resolve([]),
   ]);
   const listings = (data ?? []) as unknown as Listing[];
   const bought = new Set(((boughtRows ?? []) as { listing_id: string }[]).map((r) => r.listing_id));
 
   const link = (key: string) => {
+    if (key === "purchases" || key === "sales") return `/studio/marketplace?type=${key}`;
     const params = new URLSearchParams();
     if (key !== "all") params.set("type", key);
     if (q) params.set("q", q);
@@ -70,25 +77,25 @@ export default async function MarketplacePage({
           {FILTERS.map((f) => (
             <Link key={f.key} href={link(f.key)} aria-current={filter === f.key ? "page" : undefined}>{f.label}</Link>
           ))}
-          <Link href="/studio/deals">Purchases</Link>
-          <Link href="/studio/deals?tab=sales">Sales</Link>
         </nav>
-        <form className="mk-search" action="/studio/marketplace" role="search">
+        {!dealsTab && <form className="mk-search" action="/studio/marketplace" role="search">
           {filter !== "all" && <input type="hidden" name="type" value={filter} />}
           {cat && <input type="hidden" name="cat" value={cat} />}
           <label htmlFor="mk-q" className="visually-hidden">Search listings</label>
           <input className="st-input" id="mk-q" name="q" type="search" defaultValue={q} placeholder="Search listings" />
           <button className="btn ghost" type="submit">Search</button>
-        </form>
+        </form>}
       </div>
 
-      {cat && (
+      {dealsTab && <DealsTable deals={deals} kind={dealsTab} />}
+
+      {!dealsTab && cat && (
         <p className="mk-active-cat">
           Showing <b>{cat}</b> · <Link href={link(filter).replace(/([?&])cat=[^&]*&?/, "$1").replace(/[?&]$/, "")}>Clear topic</Link>
         </p>
       )}
 
-      {error ? (
+      {dealsTab ? null : error ? (
         <p className="form-error" role="alert">
           Couldn’t load the marketplace: {error.message}. If this is new, run the latest supabase/schema.sql in the Supabase SQL Editor.
         </p>

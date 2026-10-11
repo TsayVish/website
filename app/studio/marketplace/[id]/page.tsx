@@ -69,7 +69,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             <b>{accepted.length === 1 ? `Sold to ${buyers.get(accepted[0].buyer_id)?.full_name || "a member"} for ${money(accepted[0].amount)}` : `${accepted.length} accepted offers · ${money(accepted.reduce((a, o) => a + Number(o.amount), 0))} total`}</b>
             <small>{accepted.length === 1 ? `Accepted ${agoInline(accepted[0].responded_at ?? accepted[0].created_at)} · ${accepted[0].paid_at ? "Paid" : "Awaiting payment"}` : "See each sale for payment status."}</small>
           </span>
-          <Link className="btn st-small" href={accepted.length === 1 ? dealHref(accepted[0].id) : "/studio/deals?tab=sales"}>{accepted.length === 1 ? "View sale" : "View sales"}</Link>
+          <Link className="btn st-small" href={accepted.length === 1 ? dealHref(accepted[0].id) : "/studio/marketplace?type=sales"}>{accepted.length === 1 ? "View sale" : "View sales"}</Link>
         </div>
       )}
 

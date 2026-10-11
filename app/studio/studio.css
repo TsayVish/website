@@ -899,3 +899,8 @@ a.st-row:hover{background:var(--st-bg)}
 .dl-party a:hover{text-decoration:underline}
 :root[data-theme="dark"] .st .dl-eyebrow, :root[data-theme="dark"] .st .mk-bought{color:#6FD3A3 !important}
 .st .dl-hero{padding:22px 24px}
+.st-tabs{max-width:100%; overflow-x:auto; scrollbar-width:none}
+.st-tabs::-webkit-scrollbar{display:none}
+.st-tabs a{flex:none; white-space:nowrap}
+.st-section-head{min-width:0}
+@media (max-width:860px){ .st{grid-template-rows:auto 1fr} }
