@@ -51,7 +51,8 @@ export type Listing = {
   title: string;
   summary: string | null;
   description: string | null;
-  category: string;
+  category: string; // first of `categories`
+  categories: string[];
   price: string | null;
   contact_email: string | null;
   seller_name: string | null;
@@ -62,4 +63,4 @@ export type Listing = {
 };
 
 export const LISTING_COLUMNS =
-  "id, owner_id, type, title, summary, description, category, price, contact_email, seller_name, project_id, character_info, status, created_at";
+  "id, owner_id, type, title, summary, description, category, categories, price, contact_email, seller_name, project_id, character_info, status, created_at";

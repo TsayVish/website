@@ -19,6 +19,9 @@ export function ListingArt({ listing }: { listing: Listing }) {
   );
 }
 
+/** All of a listing's categories (older listings only have `category`). */
+export const listingCategories = (l: Listing) => (l.categories?.length ? l.categories : [l.category]);
+
 export function ListingCard({ listing, mine }: { listing: Listing; mine: boolean }) {
   return (
     <Link href={`/studio/marketplace/${listing.id}`} className="mk-card">
@@ -33,7 +36,7 @@ export function ListingCard({ listing, mine }: { listing: Listing; mine: boolean
         <b>{listing.title}</b>
         {listing.summary && <span className="mk-summary">{listing.summary}</span>}
         <span className="mk-foot">
-          <span>{listing.category}</span>
+          <span>{listingCategories(listing).join(" · ")}</span>
           {listing.price && <span className="mk-price">{listing.price}</span>}
         </span>
         {listing.seller_name && <small className="st-help">by {listing.seller_name}</small>}

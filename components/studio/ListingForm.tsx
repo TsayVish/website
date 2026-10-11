@@ -27,12 +27,17 @@ export function ListingForm({
   const [type, setType] = useState<"character" | "service">(initial?.type ?? (characters.length ? "character" : "service"));
   const [projectId, setProjectId] = useState<string>(initial?.project_id ?? characters[0]?.id ?? "");
   const categories = type === "character" ? CHARACTER_LISTING_CATEGORIES : SERVICE_LISTING_CATEGORIES;
-  const [category, setCategory] = useState<string>(initial?.category ?? "");
+  const [picked, setPicked] = useState<string[]>(
+    initial?.categories?.length ? initial.categories : initial?.category ? [initial.category] : [],
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const chosen = characters.find((c) => c.id === projectId);
-  const activeCategory = categories.includes(category) ? category : "";
+  // Only keep choices that belong to the current listing type, in the order shown.
+  const activeCategories = categories.filter((c) => picked.includes(c));
+  const toggleCategory = (c: string) =>
+    setPicked((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -45,7 +50,7 @@ export function ListingForm({
 
     if (type === "character" && !chosen) return setError("Pick which of your characters to list.");
     if (!title) return setError("Give your listing a title.");
-    if (!activeCategory) return setError(type === "character" ? "Choose what you’re offering." : "Choose a category.");
+    if (activeCategories.length === 0) return setError(type === "character" ? "Choose at least one thing you’re offering." : "Choose at least one category.");
     if (email && !isEmail(email)) return setError("Enter a valid contact email, or leave it blank.");
     setError("");
     setBusy(true);
@@ -55,7 +60,8 @@ export function ListingForm({
       title,
       summary: summary || null,
       description: description || null,
-      category: activeCategory,
+      category: activeCategories[0],
+      categories: activeCategories,
       price: price || null,
       contact_email: email || null,
       seller_name: sellerName || null,
@@ -120,10 +126,12 @@ export function ListingForm({
         )}
 
         <div className="field">
-          <span className="lbl" id="lblCat">{type === "character" ? "What are you offering?" : "Category"}</span>
+          <span className="lbl" id="lblCat">
+            {type === "character" ? "What are you offering?" : "Categories"} <span className="opt-hint">(choose all that apply)</span>
+          </span>
           <div className="chips" role="group" aria-labelledby="lblCat">
             {categories.map((c) => (
-              <button key={c} type="button" className="chip" aria-pressed={activeCategory === c} onClick={() => setCategory(c)}>{c}</button>
+              <button key={c} type="button" className="chip" aria-pressed={picked.includes(c)} onClick={() => toggleCategory(c)}>{c}</button>
             ))}
           </div>
         </div>

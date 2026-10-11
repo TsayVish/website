@@ -373,3 +373,20 @@ drop policy if exists "Avatars: remove own" on storage.objects;
 create policy "Avatars: remove own" on storage.objects
   for delete to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ═════════════════════════════════════════════════════════════
+-- Update 4: listings can have several categories (e.g. license AND collaborate).
+-- "category" keeps the first one so older code and filters still work.
+-- ═════════════════════════════════════════════════════════════
+alter table public.listings add column if not exists categories text[] not null default '{}';
+
+update public.listings set categories = array[category] where cardinality(categories) = 0;
+
+alter table public.listings drop constraint if exists listings_categories_check;
+alter table public.listings add constraint listings_categories_check check (
+  cardinality(categories) between 1 and 6
+  and categories <@ array[
+    'Available to license', 'Open to collaborations', 'Commission me',
+    'Illustration & design', 'Animation & video', 'Voice & music', 'Writing',
+    'Legal & IP', 'Manufacturing', 'Marketing & growth', 'Events', 'Other']::text[]
+  and category = categories[1]);

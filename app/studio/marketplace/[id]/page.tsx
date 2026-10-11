@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyEmail } from "@/components/CopyEmail";
-import { ListingArt } from "@/components/studio/ListingCard";
+import { ListingArt, listingCategories } from "@/components/studio/ListingCard";
 import { ListingOwnerActions } from "@/components/studio/ListingOwnerActions";
 import { kindLabel } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
@@ -29,7 +29,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           <h1>{listing.title}</h1>
           <p className="st-meta">
             <span className={`st-pill ${listing.type === "character" ? "original" : "partnership"}`}>{listing.type === "character" ? "Character" : "Service"}</span>
-            {" · "}{listing.category}{listing.seller_name ? ` · by ${listing.seller_name}` : ""} · listed {listed}
+            {" · "}{listingCategories(listing).join(", ")}{listing.seller_name ? ` · by ${listing.seller_name}` : ""} · listed {listed}
           </p>
         </div>
       </div>
@@ -40,7 +40,12 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           <p className="st-message">{listing.description || "No description yet."}</p>
           <dl className="st-dl">
             <dt>Price</dt><dd>{listing.price || "Ask"}</dd>
-            <dt>{listing.type === "character" ? "Offering" : "Category"}</dt><dd>{listing.category}</dd>
+            <dt>{listing.type === "character" ? "Offering" : "Categories"}</dt>
+            <dd>
+              <span className="mk-cats">
+                {listingCategories(listing).map((c) => <span key={c} className="mk-cat">{c}</span>)}
+              </span>
+            </dd>
             {listing.type === "character" && (
               <>
                 <dt>Character</dt>

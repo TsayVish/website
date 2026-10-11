@@ -296,3 +296,5 @@ select.st-input{appearance:auto; padding-block:8px}
 .st-user-actions{display:flex; align-items:center; gap:8px}
 .st .st-theme{width:32px; height:32px; border-radius:8px; border-width:1px; border-color:var(--st-hair)}
 .st .st-theme svg{width:16px; height:16px}
+.mk-cats{display:flex; flex-wrap:wrap; gap:6px}
+.mk-cat{font-size:.8rem; padding:2px 9px; border-radius:999px; background:var(--st-bg); border:1px solid var(--st-soft)}
