@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { Avatar } from "../Avatar";
 import { createClient } from "@/lib/supabase/client";
-import type { ChatMessage } from "@/lib/chat";
+import { MESSAGE_COLUMNS, type ChatMessage } from "@/lib/chat";
+import { checkImage, uploadChatImage } from "@/lib/upload";
+import { ChatImage } from "./ChatImage";
 import type { Member } from "@/lib/members";
 
 const dayLabel = (iso: string) => {
@@ -33,6 +35,9 @@ export function ChatThread({
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [live, setLive] = useState(false);
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const name = other?.full_name || "tsayvish member";
@@ -53,7 +58,7 @@ export function ChatThread({
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload: { new: ChatMessage }) => {
           const m = payload.new;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev.filter((x) => !(x.id.startsWith("tmp-") && x.body === m.body && x.sender_id === m.sender_id)), m]));
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev.filter((x) => !(x.id.startsWith("tmp-") && x.body === m.body && x.sender_id === m.sender_id && Boolean(x.image_path) === Boolean(m.image_path))), m]));
           if (m.sender_id !== me) markRead();
         },
       )
@@ -70,31 +75,75 @@ export function ChatThread({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
+  function pickPhoto(file: File | undefined | null) {
+    if (!file) return;
+    const problem = checkImage(file, "chat-images");
+    if (problem) return setError(problem);
+    setError("");
+    setPhoto((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { file, url: URL.createObjectURL(file) };
+    });
+    input.current?.focus();
+  }
+
+  function onFile(e: ChangeEvent<HTMLInputElement>) {
+    pickPhoto(e.target.files?.[0]);
+    e.target.value = "";
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const file = [...e.clipboardData.files].find((f) => f.type.startsWith("image/"));
+    if (file) {
+      e.preventDefault();
+      pickPhoto(file);
+    }
+  }
+
   async function send(e?: FormEvent) {
     e?.preventDefault();
     const body = text.trim();
-    if (!body) return;
+    const attached = photo;
+    if ((!body && !attached) || sending) return;
     setError("");
     setText("");
-    const temp: ChatMessage = { id: `tmp-${Date.now()}`, conversation_id: conversationId, sender_id: me, body, created_at: new Date().toISOString() };
+    setPhoto(null);
+    setSending(true);
+    const temp: ChatMessage = {
+      id: `tmp-${Date.now()}`, conversation_id: conversationId, sender_id: me, body,
+      image_path: attached ? attached.url : null, created_at: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, temp]);
-    const { data, error: err } = await createClient()
-      .from("messages")
-      .insert({ conversation_id: conversationId, body })
-      .select("id, conversation_id, sender_id, body, created_at")
-      .single();
-    if (err || !data) {
+    const fail = (msg: string) => {
       setMessages((prev) => prev.filter((m) => m.id !== temp.id));
       setText(body);
-      setError(
+      setPhoto(attached);
+      setError(msg);
+      setSending(false);
+    };
+    let imagePath: string | null = null;
+    if (attached) {
+      try {
+        imagePath = await uploadChatImage(conversationId, attached.file);
+      } catch (err) {
+        return fail(`Couldn’t upload the photo: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    const { data, error: err } = await createClient()
+      .from("messages")
+      .insert({ conversation_id: conversationId, body, image_path: imagePath })
+      .select(MESSAGE_COLUMNS)
+      .single();
+    if (err || !data) {
+      return fail(
         err?.message.includes("row-level security")
           ? "You can’t message this person right now."
           : `Couldn’t send: ${err?.message ?? "please try again."}`,
       );
-      return;
     }
     const saved = data as ChatMessage;
     setMessages((prev) => (prev.some((m) => m.id === saved.id) ? prev.filter((m) => m.id !== temp.id) : prev.map((m) => (m.id === temp.id ? saved : m))));
+    setSending(false);
     router.refresh(); // updates the conversation list preview
     input.current?.focus();
   }
@@ -130,7 +179,8 @@ export function ChatThread({
             <div key={m.id}>
               {showDay && <div className="chat-day"><span>{day}</span></div>}
               <div className={mine ? "chat-msg mine" : "chat-msg"}>
-                <p className="chat-bubble">{m.body}</p>
+                {m.image_path && <ChatImage path={m.image_path} />}
+                {m.body && <p className="chat-bubble">{m.body}</p>}
                 <time dateTime={m.created_at}>{m.id.startsWith("tmp-") ? "Sending…" : time(m.created_at)}</time>
               </div>
             </div>
@@ -142,14 +192,25 @@ export function ChatThread({
         <p className="chat-blocked">You’ve blocked {name.split(" ")[0]}. {other && <Link href={`/studio/u/${other.id}`}>Unblock on their profile</Link>}</p>
       ) : (
       <form className="chat-compose" onSubmit={send}>
+        {photo && (
+          <div className="chat-attach">
+            <img src={photo.url} alt="Photo to send" />
+            <button type="button" className="chat-attach-x" aria-label="Remove photo" onClick={() => { URL.revokeObjectURL(photo.url); setPhoto(null); }}>×</button>
+          </div>
+        )}
+        <button type="button" className="chat-photo-btn" aria-label="Add a photo" title="Add a photo" onClick={() => fileInput.current?.click()}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5" /><circle cx="9" cy="10" r="1.6" /><path d="m20.5 16-5-5-8 8" /></svg>
+        </button>
+        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="visually-hidden" tabIndex={-1} onChange={onFile} />
         <label htmlFor="chat-input" className="visually-hidden">Message {name}</label>
         <textarea
           id="chat-input" ref={input} rows={1} maxLength={4000} value={text}
           placeholder={`Message ${name.split(" ")[0]}`}
           onChange={(e) => { setText(e.target.value); setError(""); }}
           onKeyDown={onKey}
+          onPaste={onPaste}
         />
-        <button className="btn" type="submit" disabled={!text.trim()}>Send</button>
+        <button className="btn" type="submit" disabled={(!text.trim() && !photo) || sending}>Send</button>
       </form>
       )}
       {error && <p className="form-error chat-error" role="alert">{error}</p>}

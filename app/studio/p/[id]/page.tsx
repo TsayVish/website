@@ -7,7 +7,9 @@ import { DeleteProject } from "@/components/studio/DeleteProject";
 import { PartnerForm } from "@/components/studio/PartnerForm";
 import { ProjectArt, projectBackground } from "@/components/studio/ProjectArt";
 import { ServiceForm } from "@/components/studio/ServiceForm";
+import { UploadCharacterForm } from "@/components/studio/UploadCharacterForm";
 import { castByName, kindLabel } from "@/lib/content";
+import { characterSubtitle, isExisting } from "@/lib/existing";
 import { DEAL_FIELDS, SERVICE_DEFS } from "@/lib/services";
 import { createClient } from "@/lib/supabase/server";
 import { PROJECT_COLUMNS, STATUS_LABEL, type Details, type Project, type ProjectStatus, type ServiceStatus } from "@/lib/types";
@@ -54,7 +56,7 @@ export default async function ProjectPage({
   return (
     <div className="st-stack st-project">
       <div className="st-crumbs">
-        <Link href="/studio/projects">Projects</Link><span>/</span><span>{isOriginal ? "Original" : "Partnership"}</span>
+        <Link href={isOriginal ? "/studio/hub/characters" : "/studio/projects"}>{isOriginal ? "Characters" : "Projects"}</Link><span>/</span><span>{isOriginal ? "Original" : "Partnership"}</span>
       </div>
 
       <div className="st-project-head">
@@ -65,7 +67,7 @@ export default async function ProjectPage({
           <h1>{project.name}</h1>
           {isOriginal ? (
             <p className="st-meta">
-              <span className="st-pill original">Original</span> · {project.personality} · {kindLabel(project.kind).toLowerCase()} · created {fmt(project.created_at)}
+              <span className="st-pill original">Original</span> · {characterSubtitle(project, kindLabel)} · added {fmt(project.created_at)}
             </p>
           ) : (
             <p className="st-meta">
@@ -121,7 +123,13 @@ export default async function ProjectPage({
         </div>
       )}
 
-      {isOriginal && current === "character" && project.kind && (
+      {isOriginal && current === "character" && isExisting(project.details) && (
+        <UploadCharacterForm
+          initial={{ id: project.id, name: project.name, color: project.color, description: project.description, image_url: project.image_url, details: project.details }}
+        />
+      )}
+
+      {isOriginal && current === "character" && project.kind && !isExisting(project.details) && (
         <CharacterBuilder
           mode="edit"
           initial={{

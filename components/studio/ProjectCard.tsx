@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ProjectArt, projectBackground } from "./ProjectArt";
 import { STATUS_LABEL, type Project } from "@/lib/types";
 import { kindLabel } from "@/lib/content";
+import { characterSubtitle } from "@/lib/existing";
 
 /** One row in the project table. */
 export function ProjectRow({ project }: { project: Project }) {
@@ -11,7 +12,7 @@ export function ProjectRow({ project }: { project: Project }) {
 
   const sub =
     project.type === "original"
-      ? `${project.personality} · ${kindLabel(project.kind).toLowerCase()}`
+      ? characterSubtitle(project, kindLabel)
       : `${project.company} · ${project.cast_members.join(", ")}`;
 
   const state =

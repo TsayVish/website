@@ -810,3 +810,61 @@ create policy "Promo codes: own" on public.promo_codes
     owner_id = (select auth.uid())
     and (listing_id is null or exists (
       select 1 from public.listings l where l.id = listing_id and l.owner_id = (select auth.uid()))));
+
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- Update 7: photos in chat, and uploading characters that already exist.
+-- Safe to run again.
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ── Chat photos: a private bucket, readable only by the people in that conversation ──
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('chat-images', 'chat-images', false, 8388608, array['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Files live at <conversation id>/<random name>. Only members of that conversation can add or view them.
+drop policy if exists "Chat images: members upload" on storage.objects;
+create policy "Chat images: members upload" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'chat-images'
+              and public.is_conversation_member(((storage.foldername(name))[1])::uuid));
+drop policy if exists "Chat images: members view" on storage.objects;
+create policy "Chat images: members view" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'chat-images'
+         and public.is_conversation_member(((storage.foldername(name))[1])::uuid));
+
+alter table public.messages add column if not exists image_path text;
+alter table public.messages alter column body set default '';
+alter table public.messages drop constraint if exists messages_body_check;
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check check (
+  char_length(body) <= 4000
+  and (char_length(btrim(body)) >= 1 or image_path is not null));
+alter table public.messages drop constraint if exists messages_image_path_check;
+alter table public.messages add constraint messages_image_path_check check (
+  image_path is null or (image_path like conversation_id::text || '/%' and char_length(image_path) <= 200));
+
+create or replace function public.on_new_message()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  update public.conversations
+     set last_message_at = new.created_at,
+         last_message_preview = coalesce(nullif(left(btrim(new.body), 140), ''), 'Sent a photo')
+   where id = new.conversation_id;
+  update public.conversation_members
+     set last_read_at = new.created_at
+   where conversation_id = new.conversation_id and user_id = new.sender_id;
+  return new;
+end;
+$$;
+
+-- ── Existing characters: personality is optional for originals ──
+-- (Uploaded characters keep their own story in projects.details: links, audience, rights.)
+alter table public.projects drop constraint if exists projects_original_fields;
+alter table public.projects add constraint projects_original_fields check (
+  type <> 'original' or (kind is not null and color is not null));

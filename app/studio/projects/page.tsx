@@ -40,7 +40,7 @@ export default async function StudioHome({ searchParams }: { searchParams: Promi
         </div>
         <div className="st-actions">
           <Link className="btn ghost" href="/studio/new/partner">New partnership</Link>
-          <Link className="btn" href="/studio/new/original"><IconPlus /> New original</Link>
+          <Link className="btn" href="/studio/new/original"><IconPlus /> New character</Link>
         </div>
       </div>
 

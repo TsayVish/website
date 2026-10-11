@@ -2,7 +2,8 @@ import { MEMBER_COLUMNS, type Member } from "./members";
 
 type Supa = Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>;
 
-export type ChatMessage = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string };
+export type ChatMessage = { id: string; conversation_id: string; sender_id: string; body: string; image_path: string | null; created_at: string };
+export const MESSAGE_COLUMNS = "id, conversation_id, sender_id, body, image_path, created_at";
 
 export type ConversationSummary = {
   id: string;

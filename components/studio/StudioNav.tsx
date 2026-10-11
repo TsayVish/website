@@ -9,7 +9,7 @@ import { IconChat, IconCompass, IconDashboard, IconGear, IconGrid, IconHandshake
 type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: boolean };
 
 const MAIN: NavLink[] = [
-  { href: "/studio/hub", label: "Creator hub", icon: <IconDashboard />, match: (p) => p.startsWith("/studio/hub") || p.startsWith("/studio/posts/") },
+  { href: "/studio/hub", label: "Creator hub", icon: <IconDashboard />, match: (p) => (p.startsWith("/studio/hub") || p.startsWith("/studio/posts/")) },
   { href: "/studio", label: "Discover", icon: <IconCompass />, match: (p) => p === "/studio" || p.startsWith("/studio/u/") },
   { href: "/studio/search", label: "Search", icon: <IconSearch />, match: (p) => p.startsWith("/studio/search") },
   { href: "/studio/messages", label: "Messages", icon: <IconChat />, match: (p) => p.startsWith("/studio/messages"), badge: true },
@@ -18,7 +18,7 @@ const MAIN: NavLink[] = [
 ];
 
 const CREATE: NavLink[] = [
-  { href: "/studio/new/original", label: "New original", icon: <IconSpark />, match: (p) => p.startsWith("/studio/new/original") },
+  { href: "/studio/new/original", label: "New character", icon: <IconSpark />, match: (p) => p.startsWith("/studio/new/original") },
   { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake />, match: (p) => p.startsWith("/studio/new/partner") },
 ];
 

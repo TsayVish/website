@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
 
-type Bucket = "character-images" | "avatars";
+type Bucket = "character-images" | "avatars" | "chat-images";
 
 const RULES: Record<Bucket, { types: string[]; maxBytes: number; formats: string; label: string }> = {
   "character-images": { types: ["image/png", "image/jpeg", "image/webp", "image/gif"], maxBytes: 5 * 1024 * 1024, formats: "PNG, JPG, WebP or GIF", label: "PNG, JPG, WebP or GIF, up to 5 MB" },
+  "chat-images": { types: ["image/png", "image/jpeg", "image/webp", "image/gif"], maxBytes: 8 * 1024 * 1024, formats: "PNG, JPG, WebP or GIF", label: "PNG, JPG, WebP or GIF, up to 8 MB" },
   avatars: { types: ["image/png", "image/jpeg", "image/webp"], maxBytes: 2 * 1024 * 1024, formats: "PNG, JPG or WebP", label: "PNG, JPG or WebP, up to 2 MB" },
 };
 
@@ -35,3 +36,13 @@ export async function uploadImage(bucket: Bucket, file: File) {
 }
 
 export const uploadCharacterImage = (file: File) => uploadImage("character-images", file);
+
+/** Uploads a chat photo into the conversation's private folder and returns its storage path. */
+export async function uploadChatImage(conversationId: string, file: File) {
+  const problem = checkImage(file, "chat-images");
+  if (problem) throw new Error(problem);
+  const path = `${conversationId}/${crypto.randomUUID()}.${EXT[file.type]}`;
+  const { error } = await createClient().storage.from("chat-images").upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChatThread } from "@/components/studio/chat/ChatThread";
 import { ConversationList } from "@/components/studio/chat/ConversationList";
-import { loadConversations, type ChatMessage } from "@/lib/chat";
+import { MESSAGE_COLUMNS, loadConversations, type ChatMessage } from "@/lib/chat";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Messages" };
@@ -19,7 +19,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
   const { data } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, body, created_at")
+    .select(MESSAGE_COLUMNS)
     .eq("conversation_id", id)
     .order("created_at", { ascending: false })
     .limit(200);

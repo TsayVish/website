@@ -16,14 +16,14 @@ export default async function HubDashboard() {
     count(supabase.from("follows").select("creator_id", { count: "exact", head: true }).eq("creator_id", me)),
     count(supabase.from("posts").select("id", { count: "exact", head: true }).eq("owner_id", me).eq("status", "published")),
     count(supabase.from("listings").select("id", { count: "exact", head: true }).eq("owner_id", me).eq("status", "published")),
-    count(supabase.from("projects").select("id", { count: "exact", head: true })),
+    count(supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "original")),
   ]);
   const p = profile as { full_name: string | null; avatar_url: string | null; bio: string | null } | null;
   const name = p?.full_name || "Your creator page";
 
   const steps = [
     { done: Boolean(p?.avatar_url && p?.bio), title: "Start with the basics", text: "Add your photo and a short bio so people know what you make.", href: "/studio/settings" },
-    { done: projects > 0, title: "Create your first original", text: "Design a character and switch on the services it needs.", href: "/studio/new/original" },
+    { done: projects > 0, title: "Add your first character", text: "Design one from scratch, or upload a character you already run.", href: "/studio/hub/characters/new" },
     { done: posts > 0, title: "Publish your first post", text: "Share an update with everyone, or just with your followers.", href: "/studio/hub/library/new" },
     { done: listings > 0, title: "List on the Marketplace", text: "Offer a character to license or a service you provide.", href: "/studio/marketplace/new" },
     { done: followers > 0, title: "Get your first follower", text: "Share your profile so people can follow your work.", href: `/studio/u/${me}` },

@@ -44,13 +44,13 @@ export default async function ModerationPage({ searchParams }: { searchParams: P
         </EmptyState>
       ) : (
         <div className="st-table">
-          <div className="st-row st-row-head hub-rep-row" aria-hidden="true">
+          <div className={`st-row st-row-head hub-rep-row${tab === "mine" ? " hub-rep-mine" : ""}`} aria-hidden="true">
             <span>Item</span><span>Reason</span><span>Status</span><span>Reported</span>{tab === "reported" && <span />}
           </div>
           {rows.map((r) => {
             const href = reportHref(r);
             return (
-              <div key={r.id} className="st-row hub-rep-row">
+              <div key={r.id} className={`st-row hub-rep-row${tab === "mine" ? " hub-rep-mine" : ""}`}>
                 <span className="st-proj-text">
                   {href ? <Link href={href}><b>{r.target_label || TYPE_LABEL[r.target_type]}</b></Link> : <b>{r.target_label || TYPE_LABEL[r.target_type]}</b>}
                   <small>{TYPE_LABEL[r.target_type]}{r.details ? ` · “${r.details}”` : ""}</small>
