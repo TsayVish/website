@@ -36,6 +36,11 @@ export const LEGAL_DOCS: LegalDoc[] = [
         "We may remove content, limit features or close accounts that break these rules. You can report anything that looks wrong from its page.",
       ] },
       { heading: "AI features", body: ["If you use AI tools on tsayvish, you’re responsible for reviewing what they produce before publishing it, and for labelling AI-generated content where platforms or laws require it."] },
+      { heading: "AI Studio credits", body: [
+        "Generating images, voice and video in the AI Studio uses credits. You see the price before each generation, and it’s taken from your balance when the generation starts.",
+        "If a generation fails, its credits are returned automatically. Stopping a generation after it has started doesn’t return its credits.",
+        "Credits are bought in US dollars through our payment provider, Stripe. They don’t expire, can’t be transferred or exchanged for cash, and aren’t refundable except where the law requires. Prices may change; changes never affect credits you already have.",
+      ] },
       { heading: "Disclaimers and liability", body: [
         "tsayvish is provided “as is”. To the extent the law allows, we aren’t liable for indirect or consequential losses, and our total liability to you is limited to the amount you paid us in the 12 months before the claim.",
       ] },

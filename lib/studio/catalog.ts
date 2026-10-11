@@ -1,7 +1,7 @@
 /*
  * AI Studio: what can be made, with which model, from which inputs, and roughly what it costs.
  * Shared by the browser (forms, cost estimates) and the server (validation, provider calls).
- * Models run on fal.ai. Prices are fal's list prices in US cents, rounded up, and are estimates.
+ * Models run on fal.ai. cost() is fal's list price in US cents (rounded up); people pay that × the credit markup.
  * Self-contained on purpose: unit tests import this file directly.
  */
 
@@ -73,7 +73,7 @@ export const MODELS: ModelDef[] = [
     id: "nano-banana-2",
     tool: "image",
     label: "Nano Banana 2",
-    blurb: "Keeps your character on-model from reference pictures. $0.08 an image.",
+    blurb: "Keeps your character on-model from reference pictures.",
     prompt: "required",
     promptLabel: "What should the picture show?",
     promptMax: 2000,
@@ -98,7 +98,7 @@ export const MODELS: ModelDef[] = [
     id: "kling-2.5-turbo",
     tool: "video",
     label: "Kling 2.5 Turbo",
-    blurb: "Fast, smooth motion. Silent clip. About $0.07 a second.",
+    blurb: "Fast, smooth motion. Silent clip.",
     prompt: "required",
     promptLabel: "What happens in the shot?",
     promptMax: 2500,
@@ -122,7 +122,7 @@ export const MODELS: ModelDef[] = [
     id: "kling-3-pro",
     tool: "video",
     label: "Kling 3 Pro",
-    blurb: "Highest quality, with optional sound. Needs a starting picture. $0.12–$0.17 a second.",
+    blurb: "Highest quality, with optional sound. Needs a starting picture.",
     prompt: "required",
     promptLabel: "What happens in the shot?",
     promptMax: 2500,
@@ -147,7 +147,7 @@ export const MODELS: ModelDef[] = [
     id: "elevenlabs-v3",
     tool: "voice",
     label: "ElevenLabs v3",
-    blurb: "Expressive speech. About $0.01 per 100 characters.",
+    blurb: "Expressive speech in 20 voices.",
     prompt: "required",
     promptLabel: "What should they say?",
     promptMax: 3000,
@@ -163,7 +163,7 @@ export const MODELS: ModelDef[] = [
     id: "fabric-1.0",
     tool: "talking",
     label: "VEED Fabric 1.0",
-    blurb: "Lip-syncs a picture to a voice line. Works best with a clear, front-facing face. $0.08–$0.15 a second.",
+    blurb: "Lip-syncs a picture to a voice line. Works best with a clear, front-facing face.",
     prompt: "none",
     promptMax: 0,
     needs: { image: [1, 1], audio: [1, 1] },
@@ -182,7 +182,7 @@ export const MODELS: ModelDef[] = [
     id: "ffmpeg-compose",
     tool: "assemble",
     label: "Assemble",
-    blurb: "Joins your scenes in order. Almost free.",
+    blurb: "Joins your scenes in order.",
     prompt: "none",
     promptMax: 0,
     needs: {},

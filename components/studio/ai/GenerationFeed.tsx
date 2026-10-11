@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { dollars, modelById, toolLabel } from "@/lib/studio/catalog";
+import { modelById, toolLabel } from "@/lib/studio/catalog";
+import { money } from "@/lib/billing";
 import { STATUS_TEXT, isPending, type StudioGeneration, type StudioMedia } from "@/lib/studio/types";
 import { agoInline } from "@/lib/offers";
 
@@ -40,7 +41,7 @@ export function GenerationFeed({
               <div className="ai-result-head">
                 <span className="ai-result-what">
                   <b>{toolLabel(g.tool)}</b>
-                  <small>{modelById(g.model)?.label ?? g.model} · {agoInline(g.created_at)} · {dollars(g.cost_cents)}</small>
+                  <small>{modelById(g.model)?.label ?? g.model} · {agoInline(g.created_at)} · {money(g.price_cents ?? 0)}{g.status === "failed" && g.price_cents ? " refunded" : ""}</small>
                 </span>
                 <span className={`ai-status ai-${g.status}`}>
                   {isPending(g.status) && <span className="ai-spin" aria-hidden="true" />}

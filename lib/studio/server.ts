@@ -30,7 +30,7 @@ const SIGNED_URL_SECONDS = 60 * 60 * 2;
 const GIVE_UP_AFTER_MS = 45 * 60 * 1000;
 
 export const GENERATION_COLUMNS =
-  "id, project_id, created_by, tool, model, prompt, params, inputs, status, provider_request_id, error, cost_cents, created_at, updated_at, finished_at";
+  "id, project_id, created_by, tool, model, prompt, params, inputs, status, provider_request_id, error, cost_cents, price_cents, created_at, updated_at, finished_at";
 
 export type InputRef = { type: "media" | "asset" | "character"; id: string };
 export type SceneRef = { clip: string; voice?: string | null; clipMs?: number | null; voiceMs?: number | null };
@@ -200,7 +200,7 @@ export async function startGeneration(db: Db, env: StudioEnv, body: GenerateBody
     p_inputs: [...refs, ...scenes.map((s) => ({ type: "scene", clip: s.clip, voice: s.voice ?? null }))],
     p_cost_cents: cost,
   });
-  if (error) throw new StudioError(error.message || "Couldn’t start that.", /limit|too often/i.test(error.message ?? "") ? 429 : 400);
+  if (error) throw new StudioError(error.message || "Couldn’t start that.", /not enough credits/i.test(error.message ?? "") ? 402 : /limit|too often/i.test(error.message ?? "") ? 429 : 400);
 
   // Hand it to fal.
   try {

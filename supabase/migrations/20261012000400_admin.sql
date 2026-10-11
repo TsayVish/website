@@ -98,7 +98,7 @@ alter table public.notifications add column if not exists body text check (body 
 alter table public.notifications drop constraint if exists notifications_type_check;
 alter table public.notifications add constraint notifications_type_check check (type in (
   'offer_received', 'offer_accepted', 'offer_declined', 'offer_withdrawn', 'offer_paid', 'new_follower',
-  'service_update', 'service_active', 'partnership_update', 'agreement_proposed', 'agreement_signed'));
+  'service_update', 'service_active', 'partnership_update', 'agreement_proposed', 'agreement_signed', 'credits_added'));
 
 -- ── Staff can read everything they need to run the platform ──
 drop policy if exists "Staff read all" on public.projects;

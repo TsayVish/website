@@ -183,12 +183,35 @@ export function StudioLimit({ userId }: { userId: string }) {
   const { busy, error, ok, call } = useRpc();
   const [open, setOpen] = useState(false);
   const [dollars, setDollars] = useState("");
-  if (!open) return <button type="button" className="rp-link" onClick={() => setOpen(true)}>AI limit</button>;
+  if (!open) return <button type="button" className="rp-link" title="Optional monthly cap on AI Studio provider cost" onClick={() => setOpen(true)}>Spend cap</button>;
   return (
     <span className="hub-row-actions">
       <input className="st-input adm-limit" inputMode="decimal" placeholder="$ a month" value={dollars} onChange={(e) => setDollars(e.target.value)} aria-label="Monthly AI Studio limit in dollars" />
       <button type="button" className="btn st-small" disabled={busy || !/^\d+(\.\d{1,2})?$/.test(dollars.trim())}
         onClick={async () => { if (await call("admin_set_studio_limit", { p_user: userId, p_cents: Math.round(Number(dollars) * 100) }, "Limit saved.")) setOpen(false); }}>
+        Save
+      </button>
+      <button type="button" className="rp-link" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <small className="form-error">{error}</small>}
+      {ok && <small>{ok}</small>}
+    </span>
+  );
+}
+
+/** Adds or removes someone's AI Studio credits, with a note for the audit log. */
+export function CreditsAdjust({ userId }: { userId: string }) {
+  const { busy, error, ok, call } = useRpc();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const valid = /^-?\d+(\.\d{1,2})?$/.test(amount.trim()) && Number(amount) !== 0 && note.trim().length > 0;
+  if (!open) return <button type="button" className="rp-link" onClick={() => setOpen(true)}>Credits</button>;
+  return (
+    <span className="hub-row-actions adm-credits">
+      <input className="st-input adm-limit" inputMode="decimal" placeholder="$ (− to remove)" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Credits to add in dollars" />
+      <input className="st-input adm-note" placeholder="Why" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} aria-label="Note" />
+      <button type="button" className="btn st-small" disabled={busy || !valid}
+        onClick={async () => { if (await call("admin_adjust_credits", { p_user: userId, p_cents: Math.round(Number(amount) * 100), p_note: note.trim() }, "Credits updated.")) { setOpen(false); setAmount(""); setNote(""); } }}>
         Save
       </button>
       <button type="button" className="rp-link" onClick={() => setOpen(false)}>Cancel</button>

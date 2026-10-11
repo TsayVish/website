@@ -20,7 +20,7 @@ export type StudioProps = {
   media: StudioMedia[];
   scripts: StudioScript[];
   generations: StudioGeneration[];
-  usage: { used: number; limit: number };
+  credits: { balance: number; markup: number };
 };
 
 type Pane = "library" | "script" | "generate";
@@ -39,7 +39,8 @@ export function AIStudio(props: StudioProps) {
   const [prompt, setPrompt] = useState("");
   const [params, setParams] = useState<Record<string, string>>({});
   const [target, setTarget] = useState<Target | null>(null);
-  const [usage, setUsage] = useState(props.usage);
+  const [balance, setBalance] = useState(props.credits.balance);
+  const markup = props.credits.markup;
   const [pane, setPane] = useState<Pane>("generate");
   const [notice, setNotice] = useState("");
   const dirtyScripts = useRef(new Set<string>());
@@ -85,6 +86,12 @@ export function AIStudio(props: StudioProps) {
     }));
   }, [project.id]);
 
+  // Failed jobs are refunded by the database; read the balance back.
+  const reloadBalance = useCallback(async () => {
+    const { data } = await createClient().rpc("credit_balance");
+    if (typeof data === "number") setBalance(data);
+  }, []);
+
   /* ── polling running jobs ── */
   const pending = gens.filter((g) => isPending(g.status)).map((g) => g.id).join(",");
   useEffect(() => {
@@ -108,17 +115,12 @@ export function AIStudio(props: StudioProps) {
         await reloadMedia();
         await reloadScripts();
       }
-      if (done.some((j) => j.status === "failed" && !j.error?.includes("didn’t start"))) {
-        // A failed job that never reached the provider isn't charged.
-        const { data } = await createClient().rpc("studio_usage");
-        const u = Array.isArray(data) ? data[0] : data;
-        if (u) setUsage({ used: u.used_cents, limit: u.limit_cents });
-      }
+      if (done.some((j) => j.status !== "succeeded")) await reloadBalance();
     };
     const timer = setInterval(tick, 4000);
     const first = setTimeout(tick, 1500);
     return () => { stopped = true; clearInterval(timer); clearTimeout(first); };
-  }, [pending, reloadMedia, reloadScripts]);
+  }, [pending, reloadMedia, reloadScripts, reloadBalance]);
 
   /* ── starting jobs ── */
   async function start(body: Record<string, unknown>) {
@@ -133,15 +135,19 @@ export function AIStudio(props: StudioProps) {
     const job = (out.job ?? null) as StudioGeneration | null;
     if (job) {
       setGens((g) => [job, ...g.filter((x) => x.id !== job.id)]);
-      setUsage((u) => ({ ...u, used: u.used + job.cost_cents }));
+      setBalance((b) => b - (job.price_cents ?? 0));
+      if (!isPending(job.status)) reloadBalance();
     }
     return job;
   }
 
   async function cancel(id: string) {
+    const g = gens.find((x) => x.id === id);
+    if (g?.status === "running" && !window.confirm("Stop this? It has already started, so its credits won’t be returned.")) return;
     const res = await fetch(`/api/studio/generations/${id}`, { method: "DELETE" });
     const out = await res.json().catch(() => ({}));
     if (out.job) setGens((g) => g.map((x) => (x.id === id ? out.job : x)));
+    reloadBalance();
   }
 
   /* ── script helpers ── */
@@ -226,6 +232,7 @@ export function AIStudio(props: StudioProps) {
             urlOf={urlOf}
             gens={gens}
             onAim={aimAtScene}
+            markup={markup}
             onStart={start}
           />
         </section>
@@ -249,7 +256,8 @@ export function AIStudio(props: StudioProps) {
             urls={urls}
             target={target}
             onClearTarget={() => setTarget(null)}
-            usage={usage}
+            balance={balance}
+            markup={markup}
             onStart={start}
           />
           <GenerationFeed

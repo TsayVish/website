@@ -188,7 +188,17 @@ do $$ begin assert (select count(*) from public.discover_listings(null, 10)) = 1
 do $$ begin assert (select count(*) from public.profiles) >= 1, 'visitors see discoverable profiles'; end $$;
 commit;
 
--- ── 10. AI Studio: library, scripts, generations, monthly limit ──
+-- ── 10. AI Studio: library, scripts, generations, credits ──
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 500)$q$, 'not enough credits');
+do $$ begin assert public.claim_starter_credits() = 100, 'starter credits'; end $$;
+do $$ begin assert public.claim_starter_credits() = 100, 'starter credits only once'; end $$;
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+do $$ begin assert public.admin_adjust_credits('00000000-0000-0000-0000-00000000000b', 1900, 'Test credits') = 2000, 'staff grant'; end $$;
+commit;
 begin;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
 -- an editor uploads into the character's folder
@@ -215,14 +225,20 @@ select public.studio_complete_generation((select id from public.studio_generatio
   '[{"path":"10000000-0000-0000-0000-000000000001/gen-1.mp4","kind":"video"}]');
 do $$ begin assert (select count(*) from public.studio_media where source = 'generated') = 1, 'no duplicate output'; end $$;
 do $$ begin assert (select used_cents from public.studio_usage()) = 35, 'usage counted'; end $$;
+do $$ begin assert public.credit_balance() = 2000 - 53, 'charged cost × 1.5, rounded up'; end $$;
 -- a job that failed before reaching the provider is free
 select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 8);
 select public.studio_end_generation((select id from public.studio_generations where status = 'queued'), 'failed', 'Provider down');
 do $$ begin assert (select used_cents from public.studio_usage()) = 35, 'unsubmitted failure not charged'; end $$;
-select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 990)$q$, 'monthly ai studio limit');
+do $$ begin assert public.credit_balance() = 2000 - 53, 'failed job refunded'; end $$;
+do $$ begin assert (select count(*) from public.credit_ledger where kind = 'refund') = 1, 'one refund'; end $$;
+select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 99000)$q$, 'not enough credits');
+select pg_temp.expect_error($q$insert into public.credit_ledger (user_id, kind, amount_cents) values (auth.uid(), 'grant', 100000)$q$, 'permission denied');
+select pg_temp.expect_error($q$select public.record_credit_purchase('wrong', 'cs_1', auth.uid(), 5000)$q$, 'not allowed');
 select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 8);
 select pg_temp.expect_error($q$select public.studio_complete_generation((select id from public.studio_generations where status = 'queued'), '[{"path":"other/x.png","kind":"image"}]')$q$, 'stored with the character');
 select public.studio_end_generation((select id from public.studio_generations where status = 'queued'), 'canceled');
+do $$ begin assert public.credit_balance() = 2000 - 53, 'canceled before submit refunded'; end $$;
 commit;
 
 begin;
@@ -245,6 +261,31 @@ begin;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
 select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 990);
 do $$ begin assert (select count(*) from public.studio_usage('00000000-0000-0000-0000-00000000000a')) = 0, 'cannot read someone else''s usage'; end $$;
+commit;
+
+-- Purchases are recorded once, only with the server's secret
+create temp table billing_secret_out as select public.new_billing_secret() as s;
+grant select on billing_secret_out to anon, authenticated;
+begin;
+set local role anon;
+do $$ begin assert public.record_credit_purchase((select s from billing_secret_out), 'cs_test_1', '00000000-0000-0000-0000-00000000000b', 1000, '$10 pack'), 'purchase recorded'; end $$;
+do $$ begin assert not public.record_credit_purchase((select s from billing_secret_out), 'cs_test_1', '00000000-0000-0000-0000-00000000000b', 1000, '$10 pack'), 'only once'; end $$;
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.credit_ledger where kind = 'purchase') = 1, 'buyer sees purchase'; end $$;
+do $$ begin assert (select count(*) from public.notifications where type = 'credits_added') = 1, 'buyer notified'; end $$;
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.credit_ledger) = 0, 'stranger sees no one else''s credits'; end $$;
+do $$ begin assert public.credit_balance('00000000-0000-0000-0000-00000000000b') = 0, 'stranger can''t read a balance'; end $$;
+select pg_temp.expect_error($q$select public.billing_summary()$q$, 'staff only');
+select pg_temp.expect_error($q$select public.new_billing_secret()$q$, 'permission denied');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+do $$ begin assert (select purchased_cents from public.billing_summary()) = 1000, 'summary purchases'; end $$;
 commit;
 
 \echo 'All RLS tests passed'

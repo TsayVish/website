@@ -15,7 +15,7 @@ export const OFFER_COLUMNS = "id, listing_id, buyer_id, seller_id, amount, messa
 
 export type NotificationType =
   | "offer_received" | "offer_accepted" | "offer_declined" | "offer_withdrawn" | "offer_paid" | "new_follower"
-  | "service_update" | "service_active" | "partnership_update" | "agreement_proposed" | "agreement_signed";
+  | "service_update" | "service_active" | "partnership_update" | "agreement_proposed" | "agreement_signed" | "credits_added";
 export type NotificationRow = {
   id: string;
   type: NotificationType;

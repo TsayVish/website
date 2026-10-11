@@ -2,8 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import {
-  TOOLS, checkRequest, cleanParams, dollars, modelsFor, type InputFile, type MediaKind, type ModelDef, type Tool,
+  TOOLS, checkRequest, cleanParams, modelsFor, type InputFile, type MediaKind, type ModelDef, type Tool,
 } from "@/lib/studio/catalog";
+import Link from "next/link";
+import { money, priceFor } from "@/lib/billing";
 import type { StudioMedia } from "@/lib/studio/types";
 import type { CharacterImage } from "./MediaLibrary";
 
@@ -13,7 +15,7 @@ const MAKE_TOOLS = TOOLS.filter((t) => t.key !== "assemble");
 
 export function GeneratePanel({
   canEdit, configured, tool, model, onTool, onModel, prompt, onPrompt, params, onParams,
-  selected, onSelect, mediaById, characterImages, urls, target, onClearTarget, usage, onStart,
+  selected, onSelect, mediaById, characterImages, urls, target, onClearTarget, balance, markup, onStart,
 }: {
   canEdit: boolean;
   configured: boolean;
@@ -32,7 +34,8 @@ export function GeneratePanel({
   urls: Record<string, string>;
   target: Target | null;
   onClearTarget: () => void;
-  usage: { used: number; limit: number };
+  balance: number;
+  markup: number;
   onStart: (body: Record<string, unknown>) => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -57,9 +60,9 @@ export function GeneratePanel({
   for (const p of usable) if (inputs.filter((x) => x.kind === p.kind).length < (model.needs[p.kind]?.[1] ?? 0)) inputs.push(p);
   const files = (k: MediaKind): InputFile[] => inputs.filter((p) => p.kind === k).map((p) => ({ kind: k, url: "", durationMs: p.durationMs }));
   const args = { prompt, params: opts, images: files("image"), audio: files("audio"), video: files("video") };
-  const cost = model.cost(args);
+  const price = priceFor(model.cost(args), markup);
   const problem = checkRequest(model, prompt, { image: args.images.length, audio: args.audio.length, video: args.video.length });
-  const overLimit = usage.used + cost > usage.limit;
+  const short = price > balance;
   const needsConsent = tool === "talking";
 
   async function submit(e: FormEvent) {
@@ -101,7 +104,9 @@ export function GeneratePanel({
     <form className="ai-panel ai-generator" onSubmit={submit} noValidate>
       <div className="ai-head">
         <h2>Generate</h2>
-        <span className="ai-usage" title="Estimated provider cost this month">{dollars(usage.used)} of {dollars(usage.limit)} this month</span>
+        <span className="ai-usage">
+          Credits <b>{money(balance)}</b> · <Link href="/studio/credits">Top up</Link>
+        </span>
       </div>
 
       {!configured && (
@@ -187,12 +192,18 @@ export function GeneratePanel({
         </label>
       )}
 
-      {error && <p className="form-error" role="alert">{error}</p>}
-      {overLimit && !error && <p className="form-error" role="alert">This would go over your monthly limit.</p>}
+      {error && (
+        <p className="form-error" role="alert">
+          {error} {/credits/i.test(error) && <Link href="/studio/credits">Add credits</Link>}
+        </p>
+      )}
+      {short && !error && canEdit && (
+        <p className="form-error" role="alert">Not enough credits for this. <Link href="/studio/credits">Add credits</Link></p>
+      )}
 
       <div className="ai-go">
-        <span className="ai-cost">About {dollars(cost)}</span>
-        <button type="submit" className="btn" disabled={!canEdit || !configured || busy || overLimit}>
+        <span className="ai-cost">{money(price)}</span>
+        <button type="submit" className="btn" disabled={!canEdit || !configured || busy || short}>
           {busy ? "Starting…" : "Generate"}
         </button>
       </div>

@@ -22,6 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/studio/admin/partnerships", label: "Partnerships", badge: partnerships ?? 0 },
         { href: "/studio/admin/reports", label: "Reports", badge: reports ?? 0 },
         { href: "/studio/admin/users", label: "Members" },
+        { href: "/studio/admin/billing", label: "Billing" },
         { href: "/studio/admin/audit", label: "Audit log" },
       ]} />
       <div className="hub-main">{children}</div>

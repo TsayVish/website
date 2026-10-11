@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { VOICES, dollars, modelById } from "@/lib/studio/catalog";
+import { VOICES, modelById } from "@/lib/studio/catalog";
+import { money, priceFor } from "@/lib/billing";
 import {
   SCRIPT_COLUMNS, clock, isPending, newSceneId, readScenes,
   type Scene, type StudioGeneration, type StudioMedia, type StudioScript,
@@ -14,7 +15,7 @@ const STARTER: Scene[] = [
 
 export function ScriptEditor({
   projectId, canEdit, configured, scripts, script, onPick, onCreated, onDeleted, onEdit, onSaved,
-  media, mediaById, urlOf, gens, onAim, onStart,
+  media, mediaById, urlOf, gens, onAim, onStart, markup,
 }: {
   projectId: string;
   canEdit: boolean;
@@ -31,6 +32,7 @@ export function ScriptEditor({
   urlOf: (m: StudioMedia | undefined) => string | undefined;
   gens: StudioGeneration[];
   onAim: (scene: Scene, what: "clip" | "talking" | "voice") => void;
+  markup: number;
   onStart: (body: Record<string, unknown>) => Promise<unknown>;
 }) {
   const [saving, setSaving] = useState<"" | "saving" | "saved" | "error">("");
@@ -114,7 +116,7 @@ export function ScriptEditor({
   /* ── assembling ── */
   const ready = (script?.scenes ?? []).filter((s) => s.clip_media && mediaById.get(s.clip_media));
   const totalMs = ready.reduce((t, s) => t + (mediaById.get(s.clip_media!)?.duration_ms ?? 0), 0);
-  const assembleCost = modelById("ffmpeg-compose")!.cost({ prompt: "", params: {}, images: [], audio: [], video: [] });
+  const assembleCost = priceFor(modelById("ffmpeg-compose")!.cost({ prompt: "", params: {}, images: [], audio: [], video: [] }), markup);
   const assembling = script ? gens.some((g) => g.tool === "assemble" && isPending(g.status) && g.params?.script_id === script.id) : false;
   const lastCut = script ? gens.find((g) => g.tool === "assemble" && g.params?.script_id === script.id && g.status === "succeeded") : undefined;
   const lastCutMedia = lastCut ? media.find((m) => m.generation_id === lastCut.id) : undefined;
@@ -278,7 +280,7 @@ export function ScriptEditor({
         </div>
         {canEdit && (
           <button type="button" className="btn st-small" onClick={assemble} disabled={!configured || !ready.length || assembling || busyScene === "assemble"}>
-            {assembling ? "Assembling…" : `Assemble · ${dollars(assembleCost)}`}
+            {assembling ? "Assembling…" : `Assemble · ${money(assembleCost)}`}
           </button>
         )}
       </div>

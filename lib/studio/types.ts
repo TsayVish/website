@@ -27,10 +27,11 @@ export type StudioGeneration = {
   status: GenerationStatus;
   error: string | null;
   cost_cents: number;
+  price_cents: number;
   created_at: string;
   finished_at: string | null;
 };
-export const GENERATION_LIST_COLUMNS = "id, project_id, created_by, tool, model, prompt, params, status, error, cost_cents, created_at, finished_at";
+export const GENERATION_LIST_COLUMNS = "id, project_id, created_by, tool, model, prompt, params, status, error, cost_cents, price_cents, created_at, finished_at";
 
 export type Scene = {
   id: string;

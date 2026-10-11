@@ -15,6 +15,7 @@ Built with Next.js (App Router), TypeScript and Supabase (accounts, database, st
    - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable/anon key, **never** the secret/service_role key)
    - `NEXT_PUBLIC_SITE_URL`, e.g. `https://tsayvish.com` (used for share images, the sitemap and invite links)
    - `FAL_KEY` (optional, server only): turns on AI generation in the AI Studio. See below.
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BILLING_DB_SECRET` (optional, server only): turn on buying credits. See below.
 5. **Make yourself an admin.** In the SQL Editor, with your own email:
    ```sql
    insert into public.staff (user_id, role)
@@ -49,10 +50,34 @@ Generation runs on [fal.ai](https://fal.ai), so one key covers every model:
 2. In Vercel, add `FAL_KEY` with that key. **Never** prefix it with `NEXT_PUBLIC_`; it must stay on the server.
 3. Redeploy. Until the key is set, the studio works for uploads and scripts and shows that generation is off.
 
-Spending is capped per person per month (default **$10** of provider cost, set in
-`studio_default_monthly_cents()` in the migration). Staff can change someone's limit under Admin → Members → AI limit.
-Model choices, prices and inputs live in `lib/studio/catalog.ts`; the server side is `lib/studio/server.ts` and `app/api/studio`.
-Prices shown are fal's list prices and are estimates.
+People pay for generation with **credits** (see below). Staff can also set an optional monthly spend cap per
+person under Admin → Members → Spend cap. Model choices, provider prices and inputs live in `lib/studio/catalog.ts`;
+the server side is `lib/studio/server.ts` and `app/api/studio`.
+
+## Credits and payments (Stripe)
+
+Generation is paid for with prepaid credits, kept in US cents in the `credit_ledger` table:
+
+- Every account gets **$1.00** of welcome credits once (`starter_credits_cents()` in the credits migration).
+- Each job costs the provider's price × **1.5** (`credit_markup()`), charged when it starts. Failed jobs are refunded
+  automatically; jobs stopped before reaching the provider are refunded too.
+- People buy packs ($5, $10, $25, $50; edit `CREDIT_PACKS` in `lib/billing.ts`) on **Studio → Credits** through Stripe Checkout.
+- Staff can add or remove credits under Admin → Members → Credits, and see purchases, spend, provider cost and margin
+  under Admin → Billing.
+
+To switch on payments (start in Stripe **test mode**; no real charges):
+
+1. Run the latest `supabase/schema.sql`.
+2. In Supabase's SQL Editor run `select public.new_billing_secret();` and copy the result into Vercel as
+   `BILLING_DB_SECRET`. (It lets the server record purchases without a database admin key. Running it again replaces it.)
+3. In Stripe → Developers → API keys, copy the **secret key** (`sk_test_…`) into Vercel as `STRIPE_SECRET_KEY`.
+4. In Stripe → Developers → Webhooks, add an endpoint `https://<your site>/api/billing/webhook` listening for
+   `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Copy its **signing secret** (`whsec_…`)
+   into Vercel as `STRIPE_WEBHOOK_SECRET`.
+5. Redeploy, open Studio → Credits, and buy a pack with the test card `4242 4242 4242 4242` (any future date, any CVC).
+
+All three are server-only: never prefix them with `NEXT_PUBLIC_`, and never paste them anywhere else. To go live, repeat
+steps 3–4 with Stripe's live keys and a live-mode webhook.
 
 ## Database changes (migrations)
 
@@ -119,6 +144,7 @@ Keep a second Supabase project for staging so you can try changes before product
 | `/studio/hub/characters` | Every character you can see, including your teams'; `/import` adds many from a CSV |
 | `/studio/p/[id]` | One character: overview, assets, style guide, history (with restore), licenses, services |
 | `/studio/p/[id]/ai` | The character's AI Studio: library, scripts, generation and assembled videos |
+| `/studio/credits` | Credit balance, buying packs through Stripe, and history |
 | `/studio/hub/team` | Workspaces with owner / editor / viewer roles and invite links (`/studio/invite/[token]`) |
 | `/studio/hub/insights` | Followers, listing views, profile views and sales over time |
 | `/studio/admin` | Staff only: service queue, partnerships, reports, members (bans) and the audit log |
@@ -137,6 +163,7 @@ Row-level security is on for every table; the rules live in the migrations and a
 - **staff, bans, service_tickets, service_updates, admin_actions**: the admin console and its audit log.
 - **listing_views, profile_views**: counts for Insights.
 - **studio_media, studio_scripts, studio_generations, studio_limits**: the AI Studio (files live in the private `studio-media` bucket).
+- **credit_ledger**: every credit purchase, charge and refund; a balance is the sum of someone's rows.
 
 Safety rules in the database: posting, messaging, listing and offers need a confirmed email; banned accounts can't create
 anything; each action has a rate limit (e.g. 30 messages a minute, 20 offers an hour).

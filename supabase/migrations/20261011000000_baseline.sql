@@ -1062,7 +1062,7 @@ alter table public.notifications drop constraint if exists notifications_type_ch
 -- (Lists every type used by later updates too, so re-running this file never rejects existing rows.)
 alter table public.notifications add constraint notifications_type_check check (type in (
   'offer_received', 'offer_accepted', 'offer_declined', 'offer_withdrawn', 'offer_paid', 'new_follower',
-  'service_update', 'service_active', 'partnership_update', 'agreement_proposed', 'agreement_signed'));
+  'service_update', 'service_active', 'partnership_update', 'agreement_proposed', 'agreement_signed', 'credits_added'));
 
 create or replace function public.mark_offer_paid(offer uuid)
 returns void

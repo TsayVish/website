@@ -20,3 +20,4 @@ export const IconShield = () => (<svg {...base}><path d="M12 3l7 3v5c0 4.5-3 8.3
 export const IconTag = () => (<svg {...base}><path d="M3.5 12.5V4.5h8l9 9-8 8z" /><circle cx="8" cy="9" r="1.3" /></svg>);
 export const IconCheck = () => (<svg {...base}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>);
 export const IconBell = () => (<svg {...base}><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></svg>);
+export const IconCoin = () => (<svg {...base}><circle cx="12" cy="12" r="8.5" /><path d="M14.8 9.2c-.5-.9-1.6-1.4-2.8-1.4-1.6 0-2.8.8-2.8 2s1.1 1.7 2.8 2.1 2.9.9 2.9 2.2-1.3 2.1-2.9 2.1c-1.3 0-2.4-.6-2.9-1.5M12 6v1.8M12 16.2V18" /></svg>);

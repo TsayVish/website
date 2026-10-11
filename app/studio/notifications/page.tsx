@@ -131,6 +131,11 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           text: <>The license agreement for {listingLink(n.listing_id)} is signed by both sides</>,
           extra: n.offer_id && <div className="of-item-foot"><Link className="btn ghost st-small" href={`/studio/deals/${n.offer_id}/agreement`}>View agreement</Link></div>,
         };
+      case "credits_added":
+        return {
+          text: <>{n.body || "Credits added to your account."}</>,
+          extra: <div className="of-item-foot"><Link className="btn ghost st-small" href="/studio/credits">View credits</Link></div>,
+        };
       default:
         return { text: <>{n.body || "Something happened on your account"}</> };
     }
