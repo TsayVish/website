@@ -52,3 +52,8 @@
 @media (prefers-reduced-motion: reduce){ .crew svg{animation:none} .submit{transition:none} }
 .hint{color:var(--muted); font-size:.8rem}
 .submit:disabled, .linkBtn:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}
+.google{width:100%; font:600 1rem var(--body); padding:13px 20px; border-radius:999px; border:2px solid var(--ink); background:var(--surface); color:var(--ink); cursor:pointer; transition:transform .15s, box-shadow .15s}
+.google:hover{transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--accent)}
+.google:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}
+.or{display:flex; align-items:center; gap:12px; margin:18px 0; color:var(--muted); font-size:.82rem}
+.or::before, .or::after{content:""; flex:1; height:1px; background:var(--line)}

@@ -120,6 +120,40 @@ export function AuthPanel({ initialMode, next, linkError }: { initialMode: Mode;
     }
   }
 
+  async function onGoogle() {
+    setError("");
+    setNote("");
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}` },
+      });
+      // On success the browser leaves for Google, so we only get here on an error.
+      if (err) {
+        setError(
+          err.message.toLowerCase().includes("not enabled")
+            ? "Google sign-in isn’t switched on yet. Use email for now."
+            : friendlyAuthError(err.message),
+        );
+        setBusy(false);
+      }
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : String(err)));
+      setBusy(false);
+    }
+  }
+
+  const googleBlock = (
+    <>
+      <button type="button" className={s.google} onClick={onGoogle} disabled={busy}>
+        Continue with Google
+      </button>
+      <div className={s.or} aria-hidden="true"><span>or use email</span></div>
+    </>
+  );
+
   return (
     <>
       <div className={s.tabs} role="tablist" aria-label="Account">
@@ -137,6 +171,7 @@ export function AuthPanel({ initialMode, next, linkError }: { initialMode: Mode;
             <h2>Create your account</h2>
             <p className={s.sub}>Start building in a few minutes.</p>
           </div>
+          {googleBlock}
           <form className={s.form} onSubmit={onSignup} noValidate>
             <div className={s.f}>
               <label htmlFor="su-name">Name</label>
@@ -177,6 +212,7 @@ export function AuthPanel({ initialMode, next, linkError }: { initialMode: Mode;
             <h2>Welcome back</h2>
             <p className={s.sub}>Your characters missed you.</p>
           </div>
+          {googleBlock}
           <form className={s.form} onSubmit={onLogin} noValidate>
             <div className={s.f}>
               <label htmlFor="li-email">Email</label>
