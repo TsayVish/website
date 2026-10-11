@@ -1,0 +1,52 @@
+/* Split screen: ink panel with the cast on the left, a calm form on the right. */
+.split{min-height:100vh; min-height:100dvh; display:grid; grid-template-columns:1fr 1fr; font-size:16px; line-height:1.55}
+.side{background:var(--ink); color:var(--paper); padding:clamp(24px,5vw,56px); display:flex; flex-direction:column; justify-content:space-between; gap:40px; overflow:hidden}
+.logo{display:inline-flex; align-items:center; gap:10px; font-family:var(--display); font-weight:800; font-size:1.35rem; letter-spacing:-.03em; text-decoration:none; color:inherit; align-self:flex-start}
+.logo svg{width:34px; height:34px}
+.side h1{font-family:var(--display); font-weight:800; font-size:clamp(2.2rem,4.4vw,3.8rem); line-height:1.02; letter-spacing:-.03em; margin:0; max-width:12ch; text-wrap:balance}
+.side p{margin:14px 0 0; color:color-mix(in srgb, var(--paper) 72%, var(--ink)); max-width:42ch}
+.crew{display:flex; align-items:flex-end; gap:6px; margin-bottom:-8px}
+.crew svg{width:clamp(70px,9vw,120px); height:auto; animation:authBob 3.2s ease-in-out infinite}
+.crew svg:nth-child(2){animation-delay:-1s; width:clamp(84px,11vw,140px)}
+.crew svg:nth-child(3){animation-delay:-2s}
+@keyframes authBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+.main{display:grid; place-items:center; padding:clamp(24px,5vw,56px) clamp(16px,5vw,56px)}
+.box{width:100%; max-width:420px; display:grid; gap:24px}
+.tabs{display:grid; grid-template-columns:1fr 1fr; background:var(--surface); border:2px solid var(--ink); border-radius:999px; padding:4px}
+.tab{font:600 .95rem var(--body); padding:10px; border-radius:999px; border:0; background:transparent; color:var(--muted); cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink); color:var(--paper)}
+.panel{padding:0}
+.head{margin-bottom:22px}
+.head h2{font-family:var(--display); font-weight:800; font-size:2rem; letter-spacing:-.025em; line-height:1.05; margin:0}
+.sub{color:var(--muted); margin:6px 0 0}
+.form{display:grid; gap:16px}
+.f{display:grid; gap:6px}
+.f label{font-weight:600; font-size:.9rem}
+.f input{font:500 1rem var(--body); color:var(--ink); background:var(--surface); border:2px solid var(--line); border-radius:12px; padding:12px 14px; width:100%}
+.f input:focus{outline:none; border-color:var(--accent)}
+.row{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; font-size:.9rem}
+.linkBtn{font:inherit; font-weight:600; color:var(--accent); background:none; border:0; cursor:pointer; padding:0}
+.fieldset{border:0; padding:0; margin:0; display:grid; gap:8px}
+.fieldset legend{font-weight:600; font-size:.9rem; margin-bottom:6px; padding:0}
+.opt{display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center; padding:12px 14px; border:2px solid var(--line); border-radius:14px; cursor:pointer; background:var(--surface)}
+.opt:has(input:checked){border-color:var(--ink); box-shadow:3px 3px 0 var(--ink)}
+.opt input{accent-color:var(--accent); width:18px; height:18px; margin:0}
+.opt b{display:block; font-size:.95rem}
+.opt small{color:var(--muted); font-size:.82rem}
+.check{display:flex; gap:10px; align-items:flex-start; font-size:.85rem; color:var(--muted)}
+.check input{accent-color:var(--accent); margin-top:3px}
+.submit{font:600 1rem var(--body); padding:14px 20px; border-radius:999px; border:2px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer; transition:transform .15s, box-shadow .15s}
+.submit:hover{transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--accent)}
+.note{font-size:.88rem; padding:12px 14px; border-radius:12px; border:1.5px dashed var(--ink); background:var(--surface); margin:0}
+.err{color:var(--danger); font-size:.85rem; margin:0}
+.switch{text-align:center; font-size:.9rem; color:var(--muted); margin:0}
+.back{font-size:.9rem; color:var(--muted); text-decoration:none}
+.back:hover{color:var(--ink)}
+@media (max-width:820px){
+  .split{grid-template-columns:1fr}
+  .side{gap:24px}
+  .side p{display:none}
+  .crew svg, .crew svg:nth-child(2){width:64px}
+}
+@media (prefers-reduced-motion: reduce){ .crew svg{animation:none} .submit{transition:none} }
