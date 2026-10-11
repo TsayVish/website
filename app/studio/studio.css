@@ -956,3 +956,9 @@ a.st-row:hover{background:var(--st-bg)}
 /* Phone: a dot on the menu button when there are unread messages or notifications. */
 .st-burger{position:relative}
 .st-side:has(.st-badge) .st-burger::after{content:""; position:absolute; top:7px; right:7px; width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 2px var(--st-panel)}
+/* Empty carousel: a single full-width row, not a squeezed tile. */
+.dc-track:has(.dc-empty-tile){display:block; overflow:visible}
+.dc-empty-tile{display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; width:auto; max-width:none; padding:16px 18px; border-radius:var(--st-radius); background:var(--st-panel)}
+.dc-empty-tile p{white-space:nowrap; font-size:.88rem}
+.dc-empty-tile .btn{white-space:nowrap}
+.dc-section:has(.dc-empty-tile) .dc-arrows{display:none}
