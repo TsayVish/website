@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconGrid, IconHandshake, IconSpark, IconStore, IconUser } from "./icons";
+import { IconGear, IconGrid, IconHandshake, IconSpark, IconStore } from "./icons";
 
 const LINKS = [
   { href: "/studio", label: "Projects", icon: <IconGrid />, exact: true },
   { href: "/studio/new/original", label: "New original", icon: <IconSpark /> },
   { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake /> },
   { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore /> },
-  { href: "/studio/account", label: "Account", icon: <IconUser /> },
 ];
 
 export function StudioNav() {
@@ -26,6 +25,19 @@ export function StudioNav() {
           </Link>
         );
       })}
+    </nav>
+  );
+}
+
+/** Settings link for the bottom of the sidebar. */
+export function SettingsLink() {
+  const path = usePathname() ?? "";
+  return (
+    <nav className="st-nav st-nav-bottom" aria-label="Account">
+      <Link href="/studio/settings" aria-current={path.startsWith("/studio/settings") ? "page" : undefined}>
+        <IconGear />
+        Settings
+      </Link>
     </nav>
   );
 }

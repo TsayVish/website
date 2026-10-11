@@ -328,3 +328,48 @@ drop trigger if exists guard_listing_project on public.listings;
 create trigger guard_listing_project
   before insert or update on public.listings
   for each row execute procedure public.guard_listing_project();
+
+-- ═════════════════════════════════════════════════════════════
+-- Update 3: profile photo, bio, location and website (Settings page).
+-- ═════════════════════════════════════════════════════════════
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists bio text;
+alter table public.profiles add column if not exists location text;
+alter table public.profiles add column if not exists website text;
+
+alter table public.profiles drop constraint if exists profiles_avatar_url_check;
+alter table public.profiles add constraint profiles_avatar_url_check
+  check (avatar_url is null or (char_length(avatar_url) <= 500
+         and avatar_url like '%/storage/v1/object/public/avatars/%'));
+alter table public.profiles drop constraint if exists profiles_bio_check;
+alter table public.profiles add constraint profiles_bio_check
+  check (bio is null or char_length(bio) <= 500);
+alter table public.profiles drop constraint if exists profiles_location_check;
+alter table public.profiles add constraint profiles_location_check
+  check (location is null or char_length(location) <= 80);
+alter table public.profiles drop constraint if exists profiles_website_check;
+alter table public.profiles add constraint profiles_website_check
+  check (website is null or (char_length(website) <= 200 and website ~* '^https?://'));
+
+-- Profile photos: one folder per person, only they can change it.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 2097152, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Avatars: upload own" on storage.objects;
+create policy "Avatars: upload own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Avatars: change own" on storage.objects;
+create policy "Avatars: change own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+drop policy if exists "Avatars: remove own" on storage.objects;
+create policy "Avatars: remove own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
