@@ -15,7 +15,7 @@ const STARTER: Scene[] = [
 
 export function ScriptEditor({
   projectId, canEdit, configured, scripts, script, onPick, onCreated, onDeleted, onEdit, onSaved,
-  media, mediaById, urlOf, gens, onAim, onStart, markup,
+  media, mediaById, urlOf, gens, onAim, onStart, markup, free = false,
 }: {
   projectId: string;
   canEdit: boolean;
@@ -33,6 +33,7 @@ export function ScriptEditor({
   gens: StudioGeneration[];
   onAim: (scene: Scene, what: "clip" | "talking" | "voice") => void;
   markup: number;
+  free?: boolean;
   onStart: (body: Record<string, unknown>) => Promise<unknown>;
 }) {
   const [saving, setSaving] = useState<"" | "saving" | "saved" | "error">("");
@@ -280,7 +281,7 @@ export function ScriptEditor({
         </div>
         {canEdit && (
           <button type="button" className="btn st-small" onClick={assemble} disabled={!configured || !ready.length || assembling || busyScene === "assemble"}>
-            {assembling ? "Assembling…" : `Assemble · ${money(assembleCost)}`}
+            {assembling ? "Assembling…" : free ? "Assemble" : `Assemble · ${money(assembleCost)}`}
           </button>
         )}
       </div>

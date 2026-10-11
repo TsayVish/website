@@ -20,7 +20,7 @@ export type StudioProps = {
   media: StudioMedia[];
   scripts: StudioScript[];
   generations: StudioGeneration[];
-  credits: { balance: number; markup: number };
+  credits: { balance: number; markup: number; free?: boolean };
 };
 
 type Pane = "library" | "script" | "generate";
@@ -41,6 +41,7 @@ export function AIStudio(props: StudioProps) {
   const [target, setTarget] = useState<Target | null>(null);
   const [balance, setBalance] = useState(props.credits.balance);
   const markup = props.credits.markup;
+  const free = props.credits.free === true;
   const [pane, setPane] = useState<Pane>("generate");
   const [notice, setNotice] = useState("");
   const dirtyScripts = useRef(new Set<string>());
@@ -233,6 +234,7 @@ export function AIStudio(props: StudioProps) {
             gens={gens}
             onAim={aimAtScene}
             markup={markup}
+            free={free}
             onStart={start}
           />
         </section>
@@ -258,6 +260,7 @@ export function AIStudio(props: StudioProps) {
             onClearTarget={() => setTarget(null)}
             balance={balance}
             markup={markup}
+            free={free}
             onStart={start}
           />
           <GenerationFeed

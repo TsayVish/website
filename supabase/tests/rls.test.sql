@@ -288,4 +288,33 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a
 do $$ begin assert (select purchased_cents from public.billing_summary()) = 1000, 'summary purchases'; end $$;
 commit;
 
+-- Billing off for chosen members
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.admin_set_billing_exempt(auth.uid(), true, 'me')$q$, 'staff only');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+select public.admin_set_billing_exempt('00000000-0000-0000-0000-00000000000b', true, 'Founder');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+create temp table bal_before as select public.credit_balance() as b;
+do $$ begin assert public.is_billing_exempt(), 'exempt'; end $$;
+select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'free one', '{}', '[]', 3000);
+do $$ begin assert public.credit_balance() = (select b from bal_before), 'no credits used'; end $$;
+do $$ begin assert (select price_cents from public.studio_generations where prompt = 'free one') = 0, 'price is zero'; end $$;
+do $$ begin assert (select cost_cents from public.studio_generations where prompt = 'free one') = 3000, 'provider cost still recorded'; end $$;
+select public.studio_end_generation((select id from public.studio_generations where prompt = 'free one'), 'failed', 'x');
+do $$ begin assert public.credit_balance() = (select b from bal_before), 'no refund for a free job'; end $$;
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+select public.admin_set_billing_exempt('00000000-0000-0000-0000-00000000000b', false);
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 3000)$q$, 'not enough credits');
+commit;
+
 \echo 'All RLS tests passed'

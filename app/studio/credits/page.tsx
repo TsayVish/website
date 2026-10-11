@@ -38,10 +38,11 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
   }
 
   const limit = readLimit(sp.limit);
-  const [{ data: balance }, { data: markupData }, ledger] = await Promise.all([
+  const [{ data: balance }, { data: markupData }, ledger, { data: exempt }] = await Promise.all([
     supabase.rpc("claim_starter_credits"),
     supabase.rpc("credit_markup"),
     supabase.from("credit_ledger").select(LEDGER_COLUMNS).eq("user_id", user?.id ?? "").order("created_at", { ascending: false }).range(0, limit),
+    supabase.rpc("is_billing_exempt"),
   ]);
   const markup = Number(markupData) || DEFAULT_MARKUP;
   const page = splitPage(ledger.data as LedgerRow[] | null, limit);
@@ -64,6 +65,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Prom
       </div>
 
       {banner && <p className={`cr-banner ${banner.tone}`} role="status">{banner.text}</p>}
+      {exempt === true && <p className="cr-banner ok" role="status">Billing is off for your account, so the AI Studio is free for you. Your credit balance stays as it is.</p>}
       {ledger.error && <p className="ai-off" role="alert">Credits aren’t set up in the database yet. Run the latest <code>supabase/schema.sql</code>, then reload.</p>}
 
       <div className="cr-top">

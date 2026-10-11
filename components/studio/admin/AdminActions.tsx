@@ -220,3 +220,18 @@ export function CreditsAdjust({ userId }: { userId: string }) {
     </span>
   );
 }
+
+/** Turns AI Studio billing off (free generation) or back on for a member. */
+export function BillingToggle({ userId, exempt }: { userId: string; exempt: boolean }) {
+  const { busy, error, call } = useRpc();
+  return (
+    <span className="hub-row-actions">
+      <button type="button" className="rp-link" disabled={busy}
+        title={exempt ? "Charge this member for AI Studio again" : "Let this member use the AI Studio without credits"}
+        onClick={() => call("admin_set_billing_exempt", { p_user: userId, p_exempt: !exempt, p_note: null }, exempt ? "Billing on." : "Billing off.")}>
+        {exempt ? "Billing on" : "Billing off"}
+      </button>
+      {error && <small className="form-error">{error}</small>}
+    </span>
+  );
+}

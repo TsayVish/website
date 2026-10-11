@@ -30,7 +30,7 @@ export default async function AIStudioPage({ params }: { params: Promise<{ id: s
     supabase.from("studio_generations").select(GENERATION_LIST_COLUMNS).eq("project_id", id).order("created_at", { ascending: false }).limit(100),
     supabase.rpc("claim_starter_credits"),
   ]);
-  const { data: markupData } = await supabase.rpc("credit_markup");
+  const [{ data: markupData }, { data: exempt }] = await Promise.all([supabase.rpc("credit_markup"), supabase.rpc("is_billing_exempt")]);
   // The owner can always edit; teammates are checked by the database.
   const canEdit = project.owner_id === user?.id || access.data === true;
   // If the AI Studio tables are missing, the database update hasn't been run yet.
@@ -68,7 +68,7 @@ export default async function AIStudioPage({ params }: { params: Promise<{ id: s
         media={(media.data ?? []) as StudioMedia[]}
         scripts={(scripts.data ?? []) as StudioScript[]}
         generations={(gens.data ?? []) as StudioGeneration[]}
-        credits={{ balance: typeof credits.data === "number" ? credits.data : 0, markup: Number(markupData) || DEFAULT_MARKUP }}
+        credits={{ balance: typeof credits.data === "number" ? credits.data : 0, markup: Number(markupData) || DEFAULT_MARKUP, free: exempt === true }}
       />
     </div>
   );

@@ -41,7 +41,7 @@ export function GenerationFeed({
               <div className="ai-result-head">
                 <span className="ai-result-what">
                   <b>{toolLabel(g.tool)}</b>
-                  <small>{modelById(g.model)?.label ?? g.model} · {agoInline(g.created_at)} · {money(g.price_cents ?? 0)}{g.status === "failed" && g.price_cents ? " refunded" : ""}</small>
+                  <small>{modelById(g.model)?.label ?? g.model} · {agoInline(g.created_at)} · {g.price_cents ? money(g.price_cents) : "free"}{g.status === "failed" && g.price_cents ? " refunded" : ""}</small>
                 </span>
                 <span className={`ai-status ai-${g.status}`}>
                   {isPending(g.status) && <span className="ai-spin" aria-hidden="true" />}

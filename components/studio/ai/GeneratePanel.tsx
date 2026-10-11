@@ -15,7 +15,7 @@ const MAKE_TOOLS = TOOLS.filter((t) => t.key !== "assemble");
 
 export function GeneratePanel({
   canEdit, configured, tool, model, onTool, onModel, prompt, onPrompt, params, onParams,
-  selected, onSelect, mediaById, characterImages, urls, target, onClearTarget, balance, markup, onStart,
+  selected, onSelect, mediaById, characterImages, urls, target, onClearTarget, balance, markup, free = false, onStart,
 }: {
   canEdit: boolean;
   configured: boolean;
@@ -36,6 +36,7 @@ export function GeneratePanel({
   onClearTarget: () => void;
   balance: number;
   markup: number;
+  free?: boolean;
   onStart: (body: Record<string, unknown>) => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -68,7 +69,7 @@ export function GeneratePanel({
   for (const p of usable) if (inputs.filter((x) => x.kind === p.kind).length < (model.needs[p.kind]?.[1] ?? 0)) inputs.push(p);
   const files = (k: MediaKind): InputFile[] => inputs.filter((p) => p.kind === k).map((p) => ({ kind: k, url: "", durationMs: p.durationMs }));
   const args = { prompt, params: opts, images: files("image"), audio: files("audio"), video: files("video") };
-  const price = priceFor(model.cost(args), markup);
+  const price = free ? 0 : priceFor(model.cost(args), markup);
   const problem = checkRequest(model, prompt, { image: args.images.length, audio: args.audio.length, video: args.video.length });
   const short = price > balance;
   const needsConsent = tool === "talking";
@@ -112,9 +113,13 @@ export function GeneratePanel({
     <form className="ai-panel ai-generator" onSubmit={submit} noValidate>
       <div className="ai-head">
         <h2>Generate</h2>
-        <span className="ai-usage">
-          Credits <b>{money(balance)}</b> · <Link href="/studio/credits">Top up</Link>
-        </span>
+        {free ? (
+          <span className="ai-usage" title="The tsayvish team turned billing off for your account">Billing off · <b>free for you</b></span>
+        ) : (
+          <span className="ai-usage">
+            Credits <b>{money(balance)}</b> · <Link href="/studio/credits">Top up</Link>
+          </span>
+        )}
       </div>
 
       {!configured && (
@@ -217,7 +222,7 @@ export function GeneratePanel({
       )}
 
       <div className="ai-go">
-        <span className="ai-cost">{money(price)}</span>
+        <span className="ai-cost">{free ? "Free" : money(price)}</span>
         <button type="submit" className="btn" disabled={!canEdit || !configured || busy || short}>
           {busy ? "Starting…" : "Generate"}
         </button>

@@ -45,7 +45,7 @@ export function StudioNav({ me, unread, notes = 0 }: { me: string; unread: numbe
 }
 
 /** Settings link for the bottom of the sidebar. */
-export function SettingsLink({ staff = false, credits = null }: { staff?: boolean; credits?: number | null }) {
+export function SettingsLink({ staff = false, credits = null, freeAi = false }: { staff?: boolean; credits?: number | null; freeAi?: boolean }) {
   const path = usePathname() ?? "";
   return (
     <nav className="st-nav st-nav-bottom" aria-label="Account">
@@ -58,7 +58,7 @@ export function SettingsLink({ staff = false, credits = null }: { staff?: boolea
       <Link href="/studio/credits" aria-current={path.startsWith("/studio/credits") ? "page" : undefined}>
         <IconCoin />
         <span className="st-nav-text">Credits</span>
-        {credits != null && <span className="st-nav-credits">${(credits / 100).toFixed(2)}</span>}
+        {freeAi ? <span className="st-nav-credits">Free</span> : credits != null && <span className="st-nav-credits">${(credits / 100).toFixed(2)}</span>}
       </Link>
       <Link href="/studio/settings" aria-current={path.startsWith("/studio/settings") ? "page" : undefined}>
         <IconGear />

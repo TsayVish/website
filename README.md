@@ -62,6 +62,8 @@ Generation is paid for with prepaid credits, kept in US cents in the `credit_led
 - Each job costs the provider's price × **1.5** (`credit_markup()`), charged when it starts. Failed jobs are refunded
   automatically; jobs stopped before reaching the provider are refunded too.
 - People buy packs ($5, $10, $25, $50; edit `CREDIT_PACKS` in `lib/billing.ts`) on **Studio → Credits** through Stripe Checkout.
+- Staff can turn billing off for chosen members (Admin → Members → Billing off): their generations are free, but
+  the provider cost still shows under Admin → Billing.
 - Staff can add or remove credits under Admin → Members → Credits, and see purchases, spend, provider cost and margin
   under Admin → Billing.
 

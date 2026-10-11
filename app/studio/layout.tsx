@@ -21,13 +21,14 @@ export default async function StudioLayout({ children }: { children: React.React
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?mode=login");
 
-  const [{ data: profile }, { data: unread }, { data: notes }, { data: staff }, { data: banned }, { data: credits }] = await Promise.all([
+  const [{ data: profile }, { data: unread }, { data: notes }, { data: staff }, { data: banned }, { data: credits }, { data: freeAi }] = await Promise.all([
     supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle(),
     supabase.rpc("unread_message_count"),
     supabase.rpc("unread_notification_count"),
     supabase.rpc("is_staff"),
     supabase.rpc("is_banned"),
     supabase.rpc("credit_balance"),
+    supabase.rpc("is_billing_exempt"),
   ]);
   const unverified = !user.email_confirmed_at;
   const p = profile as { full_name: string | null; avatar_url: string | null } | null;
@@ -40,7 +41,7 @@ export default async function StudioLayout({ children }: { children: React.React
         <SidebarFrame logo={<Logo />}>
           <StudioNav me={user.id} unread={typeof unread === "number" ? unread : 0} notes={typeof notes === "number" ? notes : 0} />
           <div className="st-user">
-            <SettingsLink staff={staff === true} credits={typeof credits === "number" ? credits : null} />
+            <SettingsLink staff={staff === true} credits={typeof credits === "number" ? credits : null} freeAi={freeAi === true} />
             <Link href="/studio/settings" className="st-me">
               <Avatar url={p?.avatar_url} name={name || user.email || "?"} size={32} />
               <span className="st-me-text">
