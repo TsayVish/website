@@ -1,0 +1,9 @@
+import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/supabase/public";
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: { userAgent: "*", allow: "/", disallow: ["/studio", "/auth", "/login", "/reset-password"] },
+    sitemap: `${SITE_URL}/sitemap.xml`,
+  };
+}

@@ -13,17 +13,21 @@ export type Offer = {
 };
 export const OFFER_COLUMNS = "id, listing_id, buyer_id, seller_id, amount, message, status, created_at, responded_at, paid_at";
 
-export type NotificationType = "offer_received" | "offer_accepted" | "offer_declined" | "offer_withdrawn" | "offer_paid" | "new_follower";
+export type NotificationType =
+  | "offer_received" | "offer_accepted" | "offer_declined" | "offer_withdrawn" | "offer_paid" | "new_follower"
+  | "service_update" | "service_active" | "partnership_update" | "agreement_proposed" | "agreement_signed";
 export type NotificationRow = {
   id: string;
   type: NotificationType;
   actor_id: string | null;
   offer_id: string | null;
   listing_id: string | null;
+  project_id: string | null;
+  body: string | null;
   read_at: string | null;
   created_at: string;
 };
-export const NOTIFICATION_COLUMNS = "id, type, actor_id, offer_id, listing_id, read_at, created_at";
+export const NOTIFICATION_COLUMNS = "id, type, actor_id, offer_id, listing_id, project_id, body, read_at, created_at";
 
 export const OFFER_STATUS_LABEL: Record<OfferStatus, string> = {
   pending: "Pending", accepted: "Accepted", declined: "Declined", withdrawn: "Withdrawn",

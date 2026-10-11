@@ -7,6 +7,8 @@ import { IconPlus } from "@/components/studio/icons";
 import { createClient } from "@/lib/supabase/server";
 import { LISTING_COLUMNS, type Listing } from "@/lib/types";
 import { ALL_CATEGORIES } from "@/lib/topics";
+import { MoreLink } from "@/components/studio/MoreLink";
+import { moreHref, readLimit, splitPage } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "Marketplace" };
 
@@ -22,7 +24,7 @@ const FILTERS = [
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string; cat?: string }>;
+  searchParams: Promise<{ type?: string; q?: string; cat?: string; limit?: string }>;
 }) {
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.type) ? (sp.type as string) : "all";
@@ -35,19 +37,26 @@ export default async function MarketplacePage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let query = supabase.from("listings").select(LISTING_COLUMNS).order("created_at", { ascending: false }).limit(60);
+  const limit = readLimit(sp.limit);
+  // Searching published listings uses ranked full-text search; "My listings" filters your own (including hidden).
+  const plain = () => supabase.from("listings").select(LISTING_COLUMNS);
+  let query = q && filter !== "mine"
+    ? (supabase.rpc("search_listings", { q }).select(LISTING_COLUMNS) as unknown as ReturnType<typeof plain>)
+    : plain().order("created_at", { ascending: false });
   if (filter === "mine") query = query.eq("owner_id", user!.id);
   else query = query.eq("status", "published");
   if (filter === "character" || filter === "service") query = query.eq("type", filter);
   if (cat) query = query.contains("categories", [cat]);
-  if (q) query = query.or(`title.ilike.%${q}%,summary.ilike.%${q}%,category.ilike.%${q}%,seller_name.ilike.%${q}%`);
+  if (q && filter === "mine") query = query.or(`title.ilike.%${q}%,summary.ilike.%${q}%`);
+  query = query.range(0, limit);
   const dealsTab = filter === "purchases" || filter === "sales" ? filter : null;
   const [{ data, error }, { data: boughtRows }, deals] = await Promise.all([
     dealsTab ? Promise.resolve({ data: [], error: null }) : query,
     supabase.from("offers").select("listing_id").eq("buyer_id", user!.id).eq("status", "accepted"),
     dealsTab ? loadDeals(supabase, dealsTab === "sales" ? { seller: user!.id } : { buyer: user!.id }) : Promise.resolve([]),
   ]);
-  const listings = (data ?? []) as unknown as Listing[];
+  const page = splitPage(data as unknown as Listing[], limit);
+  const listings = page.items;
   const bought = new Set(((boughtRows ?? []) as { listing_id: string }[]).map((r) => r.listing_id));
 
   const link = (key: string) => {
@@ -111,6 +120,9 @@ export default async function MarketplacePage({
             <ListingCard key={l.id} listing={l} mine={l.owner_id === user!.id} purchased={bought.has(l.id)} />
           ))}
         </div>
+      )}
+      {!dealsTab && page.hasMore && (
+        <MoreLink href={moreHref("/studio/marketplace", { type: filter === "all" ? null : filter, q, cat }, limit)} />
       )}
     </div>
   );

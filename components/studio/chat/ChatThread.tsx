@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MESSAGE_COLUMNS, type ChatMessage } from "@/lib/chat";
 import { checkImage, uploadChatImage } from "@/lib/upload";
 import { ChatImage } from "./ChatImage";
+import { onRealtime, realtimeStatus } from "../realtime/RealtimeHub";
 import type { Member } from "@/lib/members";
 
 const dayLabel = (iso: string) => {
@@ -51,21 +52,16 @@ export function ChatThread({
 
   useEffect(() => {
     markRead();
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`chat-${conversationId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
-        (payload: { new: ChatMessage }) => {
-          const m = payload.new;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev.filter((x) => !(x.id.startsWith("tmp-") && x.body === m.body && x.sender_id === m.sender_id && Boolean(x.image_path) === Boolean(m.image_path))), m]));
-          if (m.sender_id !== me) markRead();
-        },
-      )
-      .subscribe((status: string) => setLive(status === "SUBSCRIBED"));
+    const off = onRealtime<ChatMessage>("message", (m) => {
+      if (m.conversation_id !== conversationId) return;
+      setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev.filter((x) => !(x.id.startsWith("tmp-") && x.body === m.body && x.sender_id === m.sender_id && Boolean(x.image_path) === Boolean(m.image_path))), m]));
+      if (m.sender_id !== me) markRead();
+    });
+    setLive(realtimeStatus() === "SUBSCRIBED");
+    const offStatus = onRealtime<string>("status", (st) => setLive(st === "SUBSCRIBED"));
     return () => {
-      supabase.removeChannel(channel);
+      off();
+      offStatus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, me]);

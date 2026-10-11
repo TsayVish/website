@@ -202,7 +202,7 @@ export function AuthPanel({ initialMode, next, linkError }: { initialMode: Mode;
             </fieldset>
             <label className={s.check} htmlFor="su-terms">
               <input type="checkbox" id="su-terms" name="terms" />
-              <span>I agree to the Terms of Service and Privacy Policy.</span>
+              <span>I agree to the <a href="/legal/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span>
             </label>
             {error && <p className={s.err} role="alert">{error}</p>}
             <button className={s.submit} type="submit" disabled={busy}>{busy ? "Creating account…" : "Create account"}</button>

@@ -12,14 +12,17 @@ import {
   NOTIFICATION_COLUMNS, OFFER_COLUMNS, OFFER_STATUS_CLASS, OFFER_STATUS_LABEL, ago, money, offerDraft,
   type NotificationRow, type Offer,
 } from "@/lib/offers";
+import { MoreLink } from "@/components/studio/MoreLink";
+import { moreHref, readLimit, splitPage } from "@/lib/paging";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Notifications" };
 
 type Person = { id: string; full_name: string | null; avatar_url: string | null };
 
-export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab: rawTab } = await searchParams;
+export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ tab?: string; limit?: string }> }) {
+  const { tab: rawTab, limit: rawLimit } = await searchParams;
+  const limit = readLimit(rawLimit);
   const tab = (["unread", "received", "sent"] as const).find((t) => t === rawTab) ?? "all";
   const supabase = await createClient();
   const {
@@ -27,16 +30,33 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   } = await supabase.auth.getUser();
   const me = user!.id;
 
-  const [{ data: noteRows, error }, { data: offerRows }] = await Promise.all([
-    supabase.from("notifications").select(NOTIFICATION_COLUMNS).eq("user_id", me).order("created_at", { ascending: false }).limit(100),
-    supabase.from("offers").select(OFFER_COLUMNS).order("created_at", { ascending: false }).limit(200),
+  // Only load what this tab shows, a page at a time.
+  const offersTab = tab === "received" || tab === "sent";
+  let notesQuery = supabase.from("notifications").select(NOTIFICATION_COLUMNS).eq("user_id", me).order("created_at", { ascending: false });
+  if (tab === "unread") notesQuery = notesQuery.is("read_at", null);
+  const head = { count: "exact" as const, head: true };
+  const [{ data: noteRows, error }, { data: tabOfferRows }, unreadRes, pendingRes, sentRes] = await Promise.all([
+    offersTab ? Promise.resolve({ data: [], error: null }) : notesQuery.range(0, limit),
+    offersTab
+      ? supabase.from("offers").select(OFFER_COLUMNS).eq(tab === "received" ? "seller_id" : "buyer_id", me).order("created_at", { ascending: false }).range(0, limit)
+      : Promise.resolve({ data: [] }),
+    supabase.from("notifications").select("id", head).eq("user_id", me).is("read_at", null),
+    supabase.from("offers").select("id", head).eq("seller_id", me).eq("status", "pending"),
+    supabase.from("offers").select("id", head).eq("buyer_id", me),
   ]);
-  const notes = (noteRows ?? []) as NotificationRow[];
-  const offers = (offerRows ?? []) as Offer[];
+  const notePage = splitPage(noteRows as NotificationRow[], limit);
+  const notes = notePage.items;
+  const offerPage = splitPage(tabOfferRows as Offer[], limit);
+  // Offers mentioned by the notifications on this page.
+  const noteOfferIds = [...new Set(notes.map((n) => n.offer_id).filter(Boolean) as string[])];
+  const { data: noteOfferRows } = noteOfferIds.length
+    ? await supabase.from("offers").select(OFFER_COLUMNS).in("id", noteOfferIds)
+    : { data: [] };
+  const offers = [...offerPage.items, ...((noteOfferRows ?? []) as Offer[])];
   const offerById = new Map(offers.map((o) => [o.id, o]));
-  const received = offers.filter((o) => o.seller_id === me);
-  const sent = offers.filter((o) => o.buyer_id === me);
-  const unreadCount = notes.filter((n) => !n.read_at).length;
+  const received = tab === "received" ? offerPage.items : [];
+  const sent = tab === "sent" ? offerPage.items : [];
+  const unreadCount = unreadRes.count ?? notes.filter((n) => !n.read_at).length;
 
   const listingIds = [...new Set([...notes.map((n) => n.listing_id), ...offers.map((o) => o.listing_id)].filter(Boolean) as string[])];
   const personIds = [...new Set([...notes.map((n) => n.actor_id), ...offers.flatMap((o) => [o.buyer_id, o.seller_id])].filter((x): x is string => Boolean(x) && x !== me))];
@@ -44,6 +64,11 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     listingIds.length ? supabase.from("listings").select("id, title, seller_name").in("id", listingIds) : Promise.resolve({ data: [] }),
     personIds.length ? supabase.from("profiles").select("id, full_name, avatar_url").in("id", personIds) : Promise.resolve({ data: [] }),
   ]);
+  const projectIds = [...new Set(notes.map((n) => n.project_id).filter(Boolean) as string[])];
+  const { data: projectRows } = projectIds.length ? await supabase.from("projects").select("id, name").in("id", projectIds) : { data: [] };
+  const projectName = new Map(((projectRows ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]));
+  const projectLink = (id: string | null) =>
+    id ? <Link href={`/studio/p/${id}`}><b>{projectName.get(id) ?? "your project"}</b></Link> : <b>your project</b>;
   const listingTitle = new Map(((listingRows ?? []) as { id: string; title: string; seller_name: string | null }[]).map((l) => [l.id, l]));
   const people = new Map(((peopleRows ?? []) as Person[]).map((p) => [p.id, p]));
   const personName = (id: string | null, fallback = "A member") => (id && people.get(id)?.full_name) || fallback;
@@ -90,6 +115,24 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         return { text: <>{who} withdrew their {amt} offer for {listingLink(n.listing_id)}</> };
       case "new_follower":
         return { text: <>{who} started following you</> };
+      case "service_active":
+        return { text: <>The tsayvish team switched on <b>{n.body?.replace(/ is now active$/, "") || "a service"}</b> for {projectLink(n.project_id)}</> };
+      case "service_update":
+        return { text: <>Update on {projectLink(n.project_id)} from the tsayvish team</>, extra: n.body && <p className="of-note">{n.body}</p> };
+      case "partnership_update":
+        return { text: <>Your partnership request {projectLink(n.project_id)} was updated</>, extra: n.body && <p className="of-note">{n.body}</p> };
+      case "agreement_proposed":
+        return {
+          text: <>{who} sent a license agreement for {listingLink(n.listing_id)}</>,
+          extra: n.offer_id && <div className="of-item-foot"><Link className="btn st-small" href={`/studio/deals/${n.offer_id}#agreement`}>Review agreement</Link></div>,
+        };
+      case "agreement_signed":
+        return {
+          text: <>The license agreement for {listingLink(n.listing_id)} is signed by both sides</>,
+          extra: n.offer_id && <div className="of-item-foot"><Link className="btn ghost st-small" href={`/studio/deals/${n.offer_id}/agreement`}>View agreement</Link></div>,
+        };
+      default:
+        return { text: <>{n.body || "Something happened on your account"}</> };
     }
   }
 
@@ -124,7 +167,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       </div>
     );
 
-  const shown = tab === "unread" ? notes.filter((n) => !n.read_at) : notes;
+  const shown = notes;
+  const hasMore = offersTab ? offerPage.hasMore : notePage.hasMore;
 
   return (
     <div className="st-stack">
@@ -134,8 +178,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <HubTabs current={tab} tabs={[
         { key: "all", label: "All", href: "/studio/notifications" },
         { key: "unread", label: "Unread", href: "/studio/notifications?tab=unread", count: unreadCount },
-        { key: "received", label: "Offers received", href: "/studio/notifications?tab=received", count: received.filter((o) => o.status === "pending").length },
-        { key: "sent", label: "Offers sent", href: "/studio/notifications?tab=sent", count: sent.length },
+        { key: "received", label: "Offers received", href: "/studio/notifications?tab=received", count: pendingRes.count ?? 0 },
+        { key: "sent", label: "Offers sent", href: "/studio/notifications?tab=sent", count: sentRes.count ?? 0 },
       ]} />
       {error && <p className="form-error" role="alert">Couldn’t load notifications: {error.message}. Run the latest supabase/schema.sql.</p>}
 
@@ -162,6 +206,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           })}
         </ul>
       )}
+      {hasMore && <MoreLink href={moreHref("/studio/notifications", { tab: tab === "all" ? null : tab }, limit)} />}
     </div>
   );
 }

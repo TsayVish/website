@@ -28,6 +28,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   ]);
   if (!data) notFound();
   const member = data as unknown as Member;
+  if (me && me !== member.id) await supabase.rpc("log_view", { p_kind: "profile", p_id: member.id });
   const listings = (listingRows ?? []) as unknown as Listing[];
   const posts = (postRows ?? []) as Post[];
   const isMe = me === member.id;
@@ -69,7 +70,12 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           )}
         </div>
       </div>
-      {isMe && <p className="st-help">This is how other members see your profile.</p>}
+      {isMe && (
+        <p className="st-help">
+          This is how other members see your profile.{" "}
+          <a href={`/c/${member.id}`} target="_blank" rel="noopener noreferrer">See your public page ↗</a>
+        </p>
+      )}
 
       <section className="dc-section">
         <div className="dc-head">

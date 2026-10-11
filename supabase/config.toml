@@ -1,0 +1,5 @@
+# Supabase CLI settings. Link this folder to your project once:
+#   npx supabase link --project-ref <your-project-ref>
+# then apply new migrations with:
+#   npx supabase db push
+project_id = "tsayvish"

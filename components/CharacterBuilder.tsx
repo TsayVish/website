@@ -24,7 +24,7 @@ export type BuilderInitial = {
  * - "save" (Studio): "Create project" saves the character and its requested services.
  * - "edit" (project's Character tab): updates an existing character.
  */
-export function CharacterBuilder({ mode, initial }: { mode: "preview" | "save" | "edit"; initial?: BuilderInitial }) {
+export function CharacterBuilder({ mode, initial, workspaceId }: { mode: "preview" | "save" | "edit"; initial?: BuilderInitial; workspaceId?: string | null }) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? (mode === "preview" ? "Mango" : ""));
   const [desc, setDesc] = useState(initial?.description ?? "");
@@ -108,7 +108,7 @@ export function CharacterBuilder({ mode, initial }: { mode: "preview" | "save" |
 
       const { data, error: err } = await supabase
         .from("projects")
-        .insert({ type: "original", ...fields })
+        .insert({ type: "original", ...fields, workspace_id: workspaceId || null })
         .select("id")
         .single();
       if (err || !data) throw new Error(err?.message ?? "No project was returned.");

@@ -23,11 +23,15 @@ export type Project = {
   message: string | null;
   status: ProjectStatus | null;
   created_at: string;
+  updated_at?: string;
+  style_guide?: Record<string, unknown> | null;
+  workspace_id?: string | null;
+  owner_id?: string;
   project_services?: ProjectService[];
 };
 
 export const PROJECT_COLUMNS =
-  "id, type, name, kind, color, personality, description, image_url, details, company, interest, cast_members, message, status, created_at, project_services(service, status, details, updated_at)";
+  "id, owner_id, workspace_id, type, name, kind, color, personality, description, image_url, details, style_guide, company, interest, cast_members, message, status, created_at, updated_at, project_services(service, status, details, updated_at)";
 
 export const STATUS_LABEL: Record<ProjectStatus, string> = {
   submitted: "Submitted",

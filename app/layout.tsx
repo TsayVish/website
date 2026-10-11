@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree, IBM_Plex_Mono, Inter } from "next/font/google";
+import { SITE_URL } from "@/lib/site";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -9,6 +10,7 @@ const ui = Inter({ subsets: ["latin"], variable: "--font-ui", display: "swap" })
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "tsayvish", template: "%s · tsayvish" },
   description:
     "tsayvish is an AI-native character studio and platform: our own cast of original characters, plus the tools and infrastructure to build and scale yours.",

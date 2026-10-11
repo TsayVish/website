@@ -8,6 +8,7 @@ export function Nav() {
       <div className="wrap">
         <Logo />
         <nav className="nav-links" aria-label="Sections">
+          <Link href="/explore">Explore</Link>
           <a href="#build">Build a character</a>
           <a href="#cast">Our cast</a>
           <a href="#services">What we handle</a>

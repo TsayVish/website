@@ -4,11 +4,13 @@ import { notFound } from "next/navigation";
 import { Avatar } from "@/components/studio/Avatar";
 import { ListingArt, listingCategories } from "@/components/studio/ListingCard";
 import { MessageButton } from "@/components/studio/MessageButton";
+import { AgreementPanel, type AgreementState } from "@/components/studio/deals/AgreementPanel";
 import { MarkPaidButton } from "@/components/studio/offers/MarkPaidButton";
 import { IconCheck } from "@/components/studio/icons";
 import { dealVerb, loadDeals, type Person } from "@/lib/deals";
 import { fmtDate } from "@/lib/hub";
 import { money, offerDraft } from "@/lib/offers";
+import { defaultTerms, readTerms } from "@/lib/agreement";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Deal" };
@@ -32,9 +34,24 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const title = listing?.title ?? "this listing";
   const verb = dealVerb(listing);
 
+  const { data: agRow } = await supabase.from("agreements")
+    .select("version, status, terms, seller_accepted_at, seller_signature, buyer_accepted_at, buyer_signature")
+    .eq("offer_id", offer.id).maybeSingle();
+  const agreement = agRow ? ({ ...(agRow as Omit<AgreementState, "terms">), terms: readTerms((agRow as { terms: unknown }).terms, Number(offer.amount)) } as AgreementState) : null;
+  const kind = listing?.type === "service" ? "service" : "character";
+  const myProfile = iAmSeller ? seller : buyer;
+  const parties = {
+    licensor: seller?.full_name || listing?.seller_name || "Seller",
+    licensee: buyer?.full_name || "Buyer",
+    property: listing?.title ?? "the listed item",
+    kind: kind as "character" | "service",
+    date: fmtDate(agreement?.seller_accepted_at ?? offer.responded_at),
+  };
+
   const steps = [
     { label: "Offer made", at: offer.created_at, done: true },
     { label: "Offer accepted", at: offer.responded_at, done: true },
+    { label: "Agreement signed", at: agreement?.status === "signed" ? (agreement.buyer_accepted_at && agreement.seller_accepted_at && agreement.buyer_accepted_at > agreement.seller_accepted_at ? agreement.buyer_accepted_at : agreement.seller_accepted_at) : null, done: agreement?.status === "signed" },
     { label: iAmSeller ? "Payment received" : "Payment confirmed by seller", at: offer.paid_at, done: Boolean(offer.paid_at) },
   ];
 
@@ -97,7 +114,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                   <span className="dl-step-dot" aria-hidden="true">{s.done ? <IconCheck /> : null}</span>
                   <span className="dl-step-text">
                     <b>{s.label}</b>
-                    <small>{s.done ? when(s.at) : iAmSeller ? "Mark as paid once the money arrives." : `Waiting for ${otherName.split(" ")[0]} to confirm payment.`}</small>
+                    <small>{s.done ? when(s.at) : s.label === "Agreement signed" ? "Both sides sign the license agreement below." : iAmSeller ? "Mark as paid once the money arrives." : `Waiting for ${otherName.split(" ")[0]} to confirm payment.`}</small>
                   </span>
                 </li>
               ))}
@@ -128,6 +145,9 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </section>
         </div>
       </div>
+
+      <AgreementPanel offerId={offer.id} role={iAmSeller ? "seller" : "buyer"} agreement={agreement}
+        defaults={defaultTerms(Number(offer.amount), kind)} parties={parties} myName={myProfile?.full_name ?? ""} />
     </div>
   );
 }

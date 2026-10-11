@@ -23,3 +23,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 !.env.example
+
+# local scratch
+.devmd5.txt
+/.sync.tar

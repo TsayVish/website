@@ -1,5 +1,10 @@
-/** New followers per day: one series, bars on a shared baseline, hover shows the exact count. */
-export function FollowerChart({ days }: { days: { date: string; count: number }[] }) {
+/** One daily series as bars on a shared baseline; hover shows the exact value. */
+export function FollowerChart({
+  days, label: seriesLabel = "New followers", unit = ["new follower", "new followers"], money = false,
+}: {
+  days: { date: string; count: number }[]; label?: string; unit?: [string, string]; money?: boolean;
+}) {
+  const fmtVal = (n: number) => (money ? n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : `${n.toLocaleString()} ${n === 1 ? unit[0] : unit[1]}`);
   const W = 720, H = 220, padL = 32, padB = 26, padT = 12, padR = 8;
   const max = Math.max(1, ...days.map((d) => d.count));
   const niceMax = max <= 4 ? max : Math.ceil(max / 5) * 5;
@@ -12,7 +17,7 @@ export function FollowerChart({ days }: { days: { date: string; count: number }[
   const every = Math.ceil(days.length / 6);
   return (
     <figure className="hub-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`New followers per day, ${days.length} days. Total ${days.reduce((a, d) => a + d.count, 0)}.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${seriesLabel} per day, ${days.length} days. Total ${fmtVal(days.reduce((a, d) => a + d.count, 0))}.`}>
         {ticks.map((t) => (
           <g key={t}>
             <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} className="hub-grid" />
@@ -25,7 +30,7 @@ export function FollowerChart({ days }: { days: { date: string; count: number }[
           return (
             <g key={d.date} className="hub-bar-g">
               <rect x={padL + i * slot} y={padT} width={slot} height={plotH} className="hub-hit">
-                <title>{`${label(d.date)}: ${d.count} new follower${d.count === 1 ? "" : "s"}`}</title>
+                <title>{`${label(d.date)}: ${fmtVal(d.count)}`}</title>
               </rect>
               {d.count > 0 && <path className="hub-bar" d={`M${x},${y(0)} V${y(0) - h + 4} Q${x},${y(0) - h} ${x + 4},${y(0) - h} H${x + barW - 4} Q${x + barW},${y(0) - h} ${x + barW},${y(0) - h + 4} V${y(0)} Z`} />}
               {i % every === 0 && <text x={x + barW / 2} y={H - 6} className="hub-axis" textAnchor="middle">{label(d.date)}</text>}
@@ -37,10 +42,10 @@ export function FollowerChart({ days }: { days: { date: string; count: number }[
       <details className="hub-table-toggle">
         <summary>View as table</summary>
         <table>
-          <thead><tr><th scope="col">Day</th><th scope="col">New followers</th></tr></thead>
-          <tbody>{days.filter((d) => d.count > 0).map((d) => <tr key={d.date}><td>{label(d.date)}</td><td>{d.count}</td></tr>)}</tbody>
+          <thead><tr><th scope="col">Day</th><th scope="col">{seriesLabel}</th></tr></thead>
+          <tbody>{days.filter((d) => d.count > 0).map((d) => <tr key={d.date}><td>{label(d.date)}</td><td>{money ? fmtVal(d.count) : d.count.toLocaleString()}</td></tr>)}</tbody>
         </table>
-        {days.every((d) => d.count === 0) && <p className="st-help">No new followers in this period.</p>}
+        {days.every((d) => d.count === 0) && <p className="st-help">Nothing in this period.</p>}
       </details>
     </figure>
   );

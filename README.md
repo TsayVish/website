@@ -1,17 +1,26 @@
 # tsayvish website
 
-Marketing site, sign-up / log-in, and the logged-in Studio for tsayvish, an AI-native character studio and platform.
-Built with Next.js (App Router), TypeScript and Supabase (accounts + database).
+Marketing site, public Explore pages, sign-up / log-in, and the logged-in Studio for tsayvish, an AI-native character studio and platform.
+Built with Next.js (App Router), TypeScript and Supabase (accounts, database, storage, realtime).
 
 ## One-time setup
 
 1. **Supabase project.** Create one at supabase.com.
 2. **Database.** In Supabase, open **SQL Editor → New query**, paste all of `supabase/schema.sql`, click **Run**.
+   It is safe to run again on an existing database: every statement is written to be re-runnable.
 3. **Login links.** In Supabase, open **Authentication → URL Configuration**:
    - **Site URL:** your live site, e.g. `https://tsayvish.com`
    - **Redirect URLs:** add `https://tsayvish.com/auth/callback`, `https://*.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`
-4. **Keys.** Put `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel (Settings → Environment Variables)
-   and in a local `.env.local` file (see `.env.example`).
+4. **Keys.** Put these in Vercel (Settings → Environment Variables) and in a local `.env.local` (see `.env.example`):
+   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable/anon key, **never** the secret/service_role key)
+   - `NEXT_PUBLIC_SITE_URL`, e.g. `https://tsayvish.com` (used for share images, the sitemap and invite links)
+5. **Make yourself an admin.** In the SQL Editor, with your own email:
+   ```sql
+   insert into public.staff (user_id, role)
+   select id, 'admin' from auth.users where email = 'you@example.com'
+   on conflict (user_id) do update set role = 'admin';
+   ```
+   An **Admin** link then appears in the Studio sidebar. Use `role = 'agent'` for team members who work the queue.
 
 ## Run it locally
 
@@ -22,39 +31,101 @@ npm run dev
 
 Open http://localhost:3000. Sign up at http://localhost:3000/login.
 
+## Database changes (migrations)
+
+Every change to the database lives in `supabase/migrations/`, one timestamped file per change, applied in name order.
+`supabase/schema.sql` is generated from them, so there is always one file you can paste into the SQL Editor.
+
+To change the database:
+
+1. Add a new file, e.g. `supabase/migrations/20261101000000_short_name.sql`. Write it so it can run twice
+   (`create table if not exists`, `create or replace function`, `drop policy if exists` before `create policy`).
+2. Run `npm run db:schema` to regenerate `supabase/schema.sql`.
+3. Apply it: paste the new migration (or the whole `schema.sql`) into the SQL Editor, or with the Supabase CLI run
+   `supabase link --project-ref <ref>` once and then `supabase db push`.
+
+Never edit a migration that has already been applied to production; add a new one instead.
+
+## Tests and CI
+
+| Command | What it checks |
+|---|---|
+| `npm run typecheck` | TypeScript |
+| `npm test` | Unit tests in `tests/unit` (paging, CSV import, agreements…) using Node's built-in test runner |
+| `npm run test:db` | Applies every migration to a Postgres database, runs the security tests in `supabase/tests/rls.test.sql`, then re-applies the migrations to prove they're re-runnable. Needs `PGHOST`, `PGUSER`, `PGPASSWORD` (and optionally `PGPORT`) for a throwaway database. |
+| `npm run db:check` | Fails if `supabase/schema.sql` is out of date with the migrations |
+| `npm run check` | Typecheck, unit tests and the schema check together |
+
+GitHub Actions (`.github/workflows/ci.yml`) runs typecheck, unit tests, the schema check and a build, and runs the database
+tests against a fresh Postgres 16, on every push to `main` and every pull request.
+
+## Staging
+
+Keep a second Supabase project for staging so you can try changes before production:
+
+1. Create a Supabase project called e.g. `tsayvish-staging` and run `supabase/schema.sql` in it.
+2. In Vercel → Settings → Environment Variables, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+   `NEXT_PUBLIC_SITE_URL` separately for **Preview** (staging values) and **Production** (live values).
+3. In the staging project's Authentication → URL Configuration, allow `https://*.vercel.app/auth/callback`.
+4. Every branch and pull request then gets a Vercel preview that talks to staging. Apply new migrations to staging first,
+   check the preview, merge, then apply them to production.
+
 ## How it fits together
+
+### Public (no login)
 
 | Route | What it is |
 |---|---|
 | `/` | Marketing page with the preview-only character builder |
-| `/login` | Sign up / log in (`?mode=login` opens the log-in tab) |
-| `/auth/callback` | Where email links land (confirm sign-up, reset password) |
-| `/reset-password` | Choose a new password after a reset email |
-| `/studio` | Logged-in home: start an original or a partnership, and see all projects |
-| `/studio/new/original` | Builder that saves a new original project |
-| `/studio/new/partner` | Partnership request with the tsayvish cast |
-| `/studio/p/[id]` | One project: services and their status, or partnership status |
-| `/studio/account` | Name and which option shows first |
+| `/explore` | Searchable public listings |
+| `/l/[id]` | A public listing page with its own share image |
+| `/c/[id]` | A creator's public profile with their listings and public posts |
+| `/legal/[doc]` | Terms, privacy, creator agreement and copyright (DMCA) — **drafts for a lawyer to review** |
+| `/login`, `/auth/callback`, `/reset-password` | Accounts |
+| `/sitemap.xml`, `/robots.txt` | For search engines |
+
+### Studio (logged in)
+
+| Route | What it is |
+|---|---|
+| `/studio` | Discover: ranked listings and creators. New accounts go to `/studio/welcome` first |
+| `/studio/search` | Full-text search across people, listings and posts |
+| `/studio/messages`, `/studio/notifications` | Chat and notifications, updated live over one realtime connection |
+| `/studio/marketplace` | Listings, offers, purchases and sales |
+| `/studio/deals/[id]` | One accepted offer; the seller drafts a license agreement, both sides sign, `/agreement` is the printable copy |
+| `/studio/hub/characters` | Every character you can see, including your teams'; `/import` adds many from a CSV |
+| `/studio/p/[id]` | One character: overview, assets, style guide, history (with restore), licenses, services |
+| `/studio/hub/team` | Workspaces with owner / editor / viewer roles and invite links (`/studio/invite/[token]`) |
+| `/studio/hub/insights` | Followers, listing views, profile views and sales over time |
+| `/studio/admin` | Staff only: service queue, partnerships, reports, members (bans) and the audit log |
 
 `middleware.ts` keeps people logged in and sends logged-out visitors from `/studio` to `/login`.
 
 ### Data
 
-- **profiles**: name and sign-up choice, created automatically for each new account.
-- **projects**: every project is either an `original` (a character the person owns) or a `partnership`
-  (a request to work with tsayvish cast members). People can have as many as they like.
-- **project_services**: infrastructure switched on for a project: `requested`, `active` or `off`.
+Row-level security is on for every table; the rules live in the migrations and are covered by `supabase/tests/rls.test.sql`.
 
-Row-level security means each person only ever sees their own rows.
+- **profiles, follows, blocks**: people and who follows whom.
+- **projects** (characters and partnership requests), **character_assets**, **character_versions** (automatic history), **project_services**.
+- **workspaces, workspace_members, workspace_invites**: shared ownership of characters.
+- **listings, offers, agreements**: the marketplace, from offer to signed license.
+- **conversations, messages, notifications, posts, reports**.
+- **staff, bans, service_tickets, service_updates, admin_actions**: the admin console and its audit log.
+- **listing_views, profile_views**: counts for Insights.
+
+Safety rules in the database: posting, messaging, listing and offers need a confirmed email; banned accounts can't create
+anything; each action has a rate limit (e.g. 30 messages a minute, 20 offers an hour).
 
 ### Running it day to day (the tsayvish team)
 
-In Supabase → **Table Editor**:
-- Mark a service as set up: `project_services` → change `status` to `active`. The creator then sees it as Active and can't switch it off themselves.
-- Move a partnership along: `projects` → change `status` to `in_review`, `approved` or `declined`.
+Use **Studio → Admin**. Service requests have an owner, status and due date; notes you post there appear on the creator's
+character page and notify them. Reports can be dismissed, the content hidden, or the account banned. Every admin action is
+written to the audit log.
 
 ### Where to edit things
 
 - Copy and options (cast, services, builder choices, contact email): `lib/content.ts`
+- Legal page text: `lib/legal.ts`
+- Agreement wording: `lib/agreement.ts`
 - Character drawings: `components/art.tsx`
-- Studio styles: `app/studio/studio.css`; everything else: `app/globals.css`
+- Studio and public-page styles: `app/studio/studio.css`; everything else: `app/globals.css`

@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"tests/unit/*.test.ts\"",
+    "test:db": "bash scripts/test-db.sh",
+    "db:schema": "node scripts/build-schema.mjs",
+    "db:check": "node scripts/build-schema.mjs --check",
+    "check": "npm run typecheck && npm test && npm run db:check"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -20,5 +25,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=22.18"
   }
 }

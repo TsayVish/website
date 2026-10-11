@@ -8,12 +8,15 @@ import { UnblockButton } from "@/components/studio/hub/SmallActions";
 import { IconPeople } from "@/components/studio/icons";
 import { fmtDate } from "@/lib/hub";
 import { MEMBER_COLUMNS, cleanQuery, type Member } from "@/lib/members";
+import { MoreLink } from "@/components/studio/MoreLink";
+import { moreHref, readLimit, splitPage } from "@/lib/paging";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Audience" };
 
-export default async function AudiencePage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; new?: string }> }) {
+export default async function AudiencePage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; new?: string; limit?: string }> }) {
   const sp = await searchParams;
+  const limit = readLimit(sp.limit, 50);
   const tab = sp.tab === "blocked" ? "blocked" : "followers";
   const q = cleanQuery(sp.q).toLowerCase();
   const onlyNew = sp.new === "1";
@@ -23,11 +26,16 @@ export default async function AudiencePage({ searchParams }: { searchParams: Pro
   } = await supabase.auth.getUser();
   const me = user!.id;
 
-  const [{ data: follows }, { data: blocks }] = await Promise.all([
-    supabase.from("follows").select("follower_id, created_at").eq("creator_id", me).order("created_at", { ascending: false }),
-    supabase.from("blocks").select("blocked_id, created_at").eq("blocker_id", me).order("created_at", { ascending: false }),
+  const monthAgoIso = new Date(Date.now() - 30 * 864e5).toISOString();
+  let followsQuery = supabase.from("follows").select("follower_id, created_at", { count: "exact" }).eq("creator_id", me).order("created_at", { ascending: false });
+  if (onlyNew) followsQuery = followsQuery.gte("created_at", monthAgoIso);
+  const [{ data: follows, count: followCount }, { data: blocks }, { count: allFollowers }] = await Promise.all([
+    followsQuery.range(0, limit),
+    supabase.from("blocks").select("blocked_id, created_at").eq("blocker_id", me).order("created_at", { ascending: false }).limit(500),
+    supabase.from("follows").select("creator_id", { count: "exact", head: true }).eq("creator_id", me),
   ]);
-  const f = (follows ?? []) as { follower_id: string; created_at: string }[];
+  const followPage = splitPage(follows as { follower_id: string; created_at: string }[], limit);
+  const f = followPage.items;
   const b = (blocks ?? []) as { blocked_id: string; created_at: string }[];
   const ids = tab === "followers" ? f.map((x) => x.follower_id) : b.map((x) => x.blocked_id);
   const { data: profs } = ids.length ? await supabase.from("profiles").select(MEMBER_COLUMNS).in("id", ids) : { data: [] };
@@ -53,7 +61,7 @@ export default async function AudiencePage({ searchParams }: { searchParams: Pro
     <div className="st-stack">
       <div className="st-pagehead"><div><h1>Audience</h1><p className="st-sub">The people following your work.</p></div></div>
       <HubTabs current={tab} tabs={[
-        { key: "followers", label: "Followers", href: "/studio/hub/audience", count: f.length },
+        { key: "followers", label: "Followers", href: "/studio/hub/audience", count: allFollowers ?? f.length },
         { key: "blocked", label: "Blocked", href: "/studio/hub/audience?tab=blocked", count: b.length },
       ]} />
       <div className="hub-toolbar">
@@ -68,7 +76,7 @@ export default async function AudiencePage({ searchParams }: { searchParams: Pro
         )}
         {(q || onlyNew) && <Link className="hub-clear" href={base}>Clear all</Link>}
       </div>
-      <p className="st-help">Showing {rows.length} of {tab === "followers" ? f.length : b.length}</p>
+      <p className="st-help">Showing {rows.length} of {tab === "followers" ? (followCount ?? f.length) : b.length}</p>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -106,6 +114,7 @@ export default async function AudiencePage({ searchParams }: { searchParams: Pro
           })}
         </div>
       )}
+      {tab === "followers" && followPage.hasMore && <MoreLink href={moreHref("/studio/hub/audience", { q: q || null, new: onlyNew ? "1" : null }, limit, 50)} />}
     </div>
   );
 }

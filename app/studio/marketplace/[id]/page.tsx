@@ -23,6 +23,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   if (!data) notFound();
   const listing = data as unknown as Listing;
   const mine = listing.owner_id === user?.id;
+  if (!mine) await supabase.rpc("log_view", { p_kind: "listing", p_id: listing.id });
 
   // Offers: the seller sees every offer on this listing; a buyer sees their own (row-level security).
   const { data: offerRows } = await supabase.from("offers").select(OFFER_COLUMNS).eq("listing_id", listing.id).order("created_at", { ascending: false });
@@ -162,6 +163,9 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               mine && <p>Members can message you on tsayvish. Add a contact email to show one here too.</p>
             )}
           </div>
+          {listing.status === "published" && (
+            <a className="st-help" href={`/l/${listing.id}`} target="_blank" rel="noopener noreferrer">Public page (shareable, no login needed) ↗</a>
+          )}
           {!mine && <ReportButton targetType="listing" targetId={listing.id} targetLabel={listing.title} label="Report this listing" />}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Critter } from "@/components/art";
 import { Carousel } from "@/components/studio/discover/Carousel";
 import { ListingTile } from "@/components/studio/discover/ListingTile";
@@ -25,13 +26,15 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
     data: { user },
   } = await supabase.auth.getUser();
 
-  let listingQuery = supabase.from("listings").select(LISTING_COLUMNS).eq("status", "published").order("created_at", { ascending: false }).limit(16);
-  if (topic) listingQuery = listingQuery.contains("categories", [topic]);
+  // Ranked by recent views, offers, freshness and your interests.
+  const listingQuery = supabase.rpc("discover_listings", { p_topic: topic, p_limit: 16 }).select(LISTING_COLUMNS);
   const [{ data: listingRows, error: listingError }, { data: me }] = await Promise.all([
     listingQuery,
-    supabase.from("profiles").select("full_name").eq("id", user!.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, onboarded_at").eq("id", user!.id).maybeSingle(),
   ]);
   const listings = (listingRows ?? []) as unknown as Listing[];
+  // New members start with a short welcome.
+  if (me && !(me as { onboarded_at: string | null }).onboarded_at && !listingError) redirect("/studio/welcome");
 
   // Creators: with a topic, the people listing in it; otherwise the newest members.
   let peopleQuery = supabase
@@ -46,7 +49,8 @@ export default async function DiscoverPage({ searchParams }: { searchParams: Pro
     const owners = [...new Set(listings.map((l) => l.owner_id))].filter((id) => id !== user!.id);
     peopleQuery = peopleQuery.in("id", owners.length ? owners : ["00000000-0000-0000-0000-000000000000"]);
   }
-  const { data: peopleRows } = await peopleQuery;
+  // Without a topic, creators are ranked (followers, complete profile, activity, newness).
+  const { data: peopleRows } = topic ? await peopleQuery : await supabase.rpc("discover_creators", { p_limit: 9 });
   const people = (peopleRows ?? []) as unknown as Member[];
 
   // Latest posts from people you follow.

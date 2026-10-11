@@ -18,7 +18,7 @@ export type ExistingInitial = {
 };
 
 /** Bring a character that already exists (on social, in a book, on shelves) onto tsayvish. */
-export function UploadCharacterForm({ initial, afterSave }: { initial?: ExistingInitial; afterSave?: string }) {
+export function UploadCharacterForm({ initial, afterSave, workspaceId }: { initial?: ExistingInitial; afterSave?: string; workspaceId?: string | null }) {
   const router = useRouter();
   const editing = Boolean(initial);
   const d = initial?.details;
@@ -90,7 +90,7 @@ export function UploadCharacterForm({ initial, afterSave }: { initial?: Existing
         router.refresh();
         return;
       }
-      const { data, error: err } = await supabase.from("projects").insert({ type: "original", ...fields }).select("id").single();
+      const { data, error: err } = await supabase.from("projects").insert({ type: "original", ...fields, workspace_id: workspaceId || null }).select("id").single();
       if (err || !data) throw new Error(err?.message ?? "No project was returned.");
       const id = (data as { id: string }).id;
       const services = INFRA.filter((_, i) => infra[i]).map((item) => ({ project_id: id, service: item.name, status: "requested" }));

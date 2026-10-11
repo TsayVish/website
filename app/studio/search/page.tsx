@@ -11,6 +11,8 @@ import { kindLabel } from "@/lib/content";
 import { characterSubtitle } from "@/lib/existing";
 import { POST_COLUMNS, fmtDate, type Post } from "@/lib/hub";
 import { MEMBER_COLUMNS, cleanQuery, type Member } from "@/lib/members";
+import { MoreLink } from "@/components/studio/MoreLink";
+import { moreHref, readLimit, splitPage } from "@/lib/paging";
 import { createClient } from "@/lib/supabase/server";
 import { TOPICS } from "@/lib/topics";
 import { LISTING_COLUMNS, PROJECT_COLUMNS, type Listing, type Project } from "@/lib/types";
@@ -40,7 +42,7 @@ function Row({ href, art, title, sub, meta }: { href: string; art: ReactNode; ti
   );
 }
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
+export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string; limit?: string }> }) {
   const sp = await searchParams;
   const q = cleanQuery(sp.q);
   const type: TypeKey = TYPES.some((t) => t.key === sp.type) ? (sp.type as TypeKey) : "all";
@@ -83,21 +85,33 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     data: { user },
   } = await supabase.auth.getUser();
   const like = `%${q}%`;
-  const [{ data: people }, { data: listings }, { data: posts }, { data: projects }] = await Promise.all([
-    supabase.from("profiles").select(MEMBER_COLUMNS).eq("discoverable", true).neq("id", user!.id)
-      .or(`full_name.ilike.${like},bio.ilike.${like},location.ilike.${like}`).limit(20),
-    supabase.from("listings").select(LISTING_COLUMNS).eq("status", "published")
-      .or(`title.ilike.${like},summary.ilike.${like},category.ilike.${like},seller_name.ilike.${like}`)
-      .order("created_at", { ascending: false }).limit(30),
-    supabase.from("posts").select(POST_COLUMNS).eq("status", "published")
-      .or(`title.ilike.${like},body.ilike.${like}`).order("published_at", { ascending: false }).limit(20),
-    supabase.from("projects").select(PROJECT_COLUMNS).ilike("name", like).order("created_at", { ascending: false }).limit(12),
+  // In "All", show the top few of each kind; on a single tab, page through with "Show more".
+  const limit = type === "all" ? 4 : readLimit(sp.limit);
+  const want = (k: TypeKey) => (type === "all" || type === k ? limit : 0);
+  const take = (k: TypeKey, q: PromiseLike<{ data: unknown }>) =>
+    want(k) ? q : Promise.resolve({ data: [] as unknown });
+  const head = { count: "exact" as const, head: true };
+  const [pRes, lRes, psRes, prRes, cP, cL, cPs, cPr] = await Promise.all([
+    take("creators", supabase.rpc("search_profiles", { q }).select(MEMBER_COLUMNS).range(0, want("creators"))),
+    take("listings", supabase.rpc("search_listings", { q }).select(LISTING_COLUMNS).range(0, want("listings"))),
+    take("posts", supabase.rpc("search_posts", { q }).select(POST_COLUMNS).range(0, want("posts"))),
+    take("projects", supabase.from("projects").select(PROJECT_COLUMNS).ilike("name", like).order("created_at", { ascending: false }).range(0, want("projects"))),
+    supabase.rpc("search_profiles", { q }, head),
+    supabase.rpc("search_listings", { q }, head),
+    supabase.rpc("search_posts", { q }, head),
+    supabase.from("projects").select("id", head).ilike("name", like),
   ]);
-  const m = (people ?? []) as unknown as Member[];
-  const l = (listings ?? []) as unknown as Listing[];
-  const ps = (posts ?? []) as Post[];
-  const pr = (projects ?? []) as unknown as Project[];
-  const counts: Record<TypeKey, number> = { all: m.length + l.length + ps.length + pr.length, creators: m.length, listings: l.length, posts: ps.length, projects: pr.length };
+  const m = splitPage(pRes.data as unknown as Member[], want("creators"));
+  const l = splitPage(lRes.data as unknown as Listing[], want("listings"));
+  const psPage = splitPage(psRes.data as unknown as Post[], want("posts"));
+  const pr = splitPage(prRes.data as unknown as Project[], want("projects"));
+  const ps = psPage.items;
+  const counts: Record<TypeKey, number> = {
+    creators: cP.count ?? m.items.length, listings: cL.count ?? l.items.length,
+    posts: cPs.count ?? ps.length, projects: cPr.count ?? pr.items.length, all: 0,
+  };
+  counts.all = counts.creators + counts.listings + counts.posts + counts.projects;
+  const moreFor: Partial<Record<TypeKey, boolean>> = { creators: m.hasMore, listings: l.hasMore, posts: psPage.hasMore, projects: pr.hasMore };
 
   // Post authors' names.
   const authorIds = [...new Set(ps.map((p) => p.owner_id))];
@@ -106,18 +120,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const tabHref = (k: TypeKey) => `/studio/search?q=${encodeURIComponent(q)}${k === "all" ? "" : `&type=${k}`}`;
   const show = (k: TypeKey) => type === "all" || type === k;
-  const limit = (n: number) => (type === "all" ? n : 100);
-
   const section = (k: TypeKey, title: string, rows: ReactNode[]) =>
     show(k) && rows.length > 0 && (
       <section className="sx-group" aria-label={title}>
         {type === "all" && (
           <div className="sx-group-head">
             <h2>{title}</h2>
-            {rows.length > limit(4) || counts[k] > limit(4) ? <Link href={tabHref(k)}>See all {counts[k]}</Link> : null}
+            {counts[k] > rows.length && <Link href={tabHref(k)}>See all {counts[k]}</Link>}
           </div>
         )}
-        <div className="sx-rows">{rows.slice(0, limit(4))}</div>
+        <div className="sx-rows">{rows}</div>
+        {type === k && moreFor[k] && <MoreLink href={moreHref("/studio/search", { q, type: k }, limit)} />}
       </section>
     );
 
@@ -145,11 +158,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       ) : (
         <div className="sx-body">
           {type === "all" && <p className="sx-count">{counts.all} result{counts.all === 1 ? "" : "s"} for “{q}”</p>}
-          {section("creators", "Creators", m.map((x) => (
+          {section("creators", "Creators", m.items.map((x) => (
             <Row key={x.id} href={`/studio/u/${x.id}`} art={<Avatar url={x.avatar_url} name={x.full_name || "Member"} size={40} />}
               title={x.full_name || "tsayvish member"} sub={x.bio || x.location} meta="Creator" />
           )))}
-          {section("listings", "Listings", l.map((x) => (
+          {section("listings", "Listings", l.items.map((x) => (
             <Row key={x.id} href={`/studio/marketplace/${x.id}`} art={<span className="sx-thumb"><ListingArt listing={x} /></span>}
               title={x.title} sub={[x.summary, x.seller_name && `by ${x.seller_name}`].filter(Boolean).join(" · ")}
               meta={[x.type === "character" ? "Character" : "Service", x.price].filter(Boolean).join(" · ")} />
@@ -158,7 +171,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <Row key={x.id} href={`/studio/posts/${x.id}`} art={<span className="sx-thumb sx-thumb-doc">¶</span>}
               title={x.title} sub={`${author.get(x.owner_id) || "Creator"} · ${x.body.slice(0, 120)}`} meta={fmtDate(x.published_at)} />
           )))}
-          {section("projects", "Your projects", pr.map((x) => (
+          {section("projects", "Your projects", pr.items.map((x) => (
             <Row key={x.id} href={`/studio/p/${x.id}`} art={<span className="sx-thumb" style={{ background: projectBackground(x) }}><ProjectArt project={x} /></span>}
               title={x.name} sub={x.type === "original" ? characterSubtitle(x, kindLabel) : x.company} meta={x.type === "original" ? "Character" : "Partnership"} />
           )))}
