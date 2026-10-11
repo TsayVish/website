@@ -139,6 +139,11 @@ export default async function ProjectPage({
             </p>
           )}
         </div>
+        {isOriginal && (
+          <Link className="btn st-small ai-open" href={`/studio/p/${project.id}/ai`}>
+            <span aria-hidden="true">✦</span> AI Studio
+          </Link>
+        )}
       </div>
 
       <nav className="st-ptabs" aria-label="Project sections">
@@ -153,6 +158,13 @@ export default async function ProjectPage({
       {/* ── Originals ── */}
       {isOriginal && current === "overview" && (
         <div className="st-stack">
+          <div className="panel ai-callout">
+            <div>
+              <b className="st-panel-title">AI Studio</b>
+              <p>Upload reference art, voices and footage, write a script, and generate pictures, voice lines and video clips of {project.name}.</p>
+            </div>
+            <Link className="btn st-small" href={`/studio/p/${project.id}/ai`}>Open AI Studio</Link>
+          </div>
           <div className="st-table">
             <div className="st-row st-row-head st-svc-row" aria-hidden="true">
               <span>Service</span><span>Status</span><span>Details</span><span className="st-date">Updated</span>

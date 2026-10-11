@@ -141,6 +141,7 @@ export default async function CharactersPage({ searchParams }: { searchParams: P
                 </span>
                 <span className="st-cell">{p.workspace_id ? wsName.get(p.workspace_id) ?? "Shared" : "Just you"}</span>
                 <span className="hub-row-actions">
+                  <Link className="btn ghost st-small" href={`/studio/p/${p.id}/ai`}>AI Studio</Link>
                   <Link className="btn ghost st-small" href={`/studio/p/${p.id}?tab=character`}>Edit</Link>
                   <Link className="btn ghost st-small" href={`/studio/p/${p.id}`}>Manage</Link>
                 </span>

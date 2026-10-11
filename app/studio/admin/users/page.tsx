@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BanToggle } from "@/components/studio/admin/AdminActions";
+import { BanToggle, StudioLimit } from "@/components/studio/admin/AdminActions";
 import { fmtDate } from "@/lib/hub";
 import { cleanQuery } from "@/lib/members";
 import { createClient } from "@/lib/supabase/server";
@@ -32,7 +32,10 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
             <span className="st-proj-text"><Link href={`/studio/u/${u.id}`}><b>{u.full_name || "No name"}</b></Link><small>{u.email}</small></span>
             <span className="st-cell">{fmtDate(u.created_at)}</span>
             <span>{u.staff_role ? <span className="st-status active">Staff · {u.staff_role}</span> : u.banned ? <span className="st-status off">Banned</span> : <span className="st-status">Active</span>}</span>
-            {u.staff_role ? <span /> : <BanToggle userId={u.id} banned={u.banned} />}
+            <span className="hub-row-actions">
+              <StudioLimit userId={u.id} />
+              {!u.staff_role && <BanToggle userId={u.id} banned={u.banned} />}
+            </span>
           </div>
         ))}
       </div>

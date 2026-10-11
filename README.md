@@ -14,6 +14,7 @@ Built with Next.js (App Router), TypeScript and Supabase (accounts, database, st
 4. **Keys.** Put these in Vercel (Settings → Environment Variables) and in a local `.env.local` (see `.env.example`):
    - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the publishable/anon key, **never** the secret/service_role key)
    - `NEXT_PUBLIC_SITE_URL`, e.g. `https://tsayvish.com` (used for share images, the sitemap and invite links)
+   - `FAL_KEY` (optional, server only): turns on AI generation in the AI Studio. See below.
 5. **Make yourself an admin.** In the SQL Editor, with your own email:
    ```sql
    insert into public.staff (user_id, role)
@@ -30,6 +31,28 @@ npm run dev
 ```
 
 Open http://localhost:3000. Sign up at http://localhost:3000/login.
+
+## AI Studio
+
+Every original character has an AI Studio (`/studio/p/[id]/ai`, or the **AI Studio** button on the character):
+
+- **Library:** upload images, audio and video (up to 50 MB each). Files are private to the character's owner and team.
+- **Script:** episodes split into scenes, each with what we see and what's said.
+- **Generate:** pictures from reference images (Nano Banana 2), video clips (Kling 2.5 Turbo or Kling 3 Pro),
+  voice lines (ElevenLabs v3), talking clips that lip-sync a picture to a voice line (VEED Fabric), and
+  **Assemble**, which joins a script's scene clips with their voice lines into one video.
+- Results are saved into the library and, when made from a scene, linked into that scene.
+
+Generation runs on [fal.ai](https://fal.ai), so one key covers every model:
+
+1. Create a fal account, add billing, and make an API key (Dashboard → Keys).
+2. In Vercel, add `FAL_KEY` with that key. **Never** prefix it with `NEXT_PUBLIC_`; it must stay on the server.
+3. Redeploy. Until the key is set, the studio works for uploads and scripts and shows that generation is off.
+
+Spending is capped per person per month (default **$10** of provider cost, set in
+`studio_default_monthly_cents()` in the migration). Staff can change someone's limit under Admin → Members → AI limit.
+Model choices, prices and inputs live in `lib/studio/catalog.ts`; the server side is `lib/studio/server.ts` and `app/api/studio`.
+Prices shown are fal's list prices and are estimates.
 
 ## Database changes (migrations)
 
@@ -95,6 +118,7 @@ Keep a second Supabase project for staging so you can try changes before product
 | `/studio/deals/[id]` | One accepted offer; the seller drafts a license agreement, both sides sign, `/agreement` is the printable copy |
 | `/studio/hub/characters` | Every character you can see, including your teams'; `/import` adds many from a CSV |
 | `/studio/p/[id]` | One character: overview, assets, style guide, history (with restore), licenses, services |
+| `/studio/p/[id]/ai` | The character's AI Studio: library, scripts, generation and assembled videos |
 | `/studio/hub/team` | Workspaces with owner / editor / viewer roles and invite links (`/studio/invite/[token]`) |
 | `/studio/hub/insights` | Followers, listing views, profile views and sales over time |
 | `/studio/admin` | Staff only: service queue, partnerships, reports, members (bans) and the audit log |
@@ -112,6 +136,7 @@ Row-level security is on for every table; the rules live in the migrations and a
 - **conversations, messages, notifications, posts, reports**.
 - **staff, bans, service_tickets, service_updates, admin_actions**: the admin console and its audit log.
 - **listing_views, profile_views**: counts for Insights.
+- **studio_media, studio_scripts, studio_generations, studio_limits**: the AI Studio (files live in the private `studio-media` bucket).
 
 Safety rules in the database: posting, messaging, listing and offers need a confirmed email; banned accounts can't create
 anything; each action has a rate limit (e.g. 30 messages a minute, 20 offers an hour).

@@ -188,4 +188,63 @@ do $$ begin assert (select count(*) from public.discover_listings(null, 10)) = 1
 do $$ begin assert (select count(*) from public.profiles) >= 1, 'visitors see discoverable profiles'; end $$;
 commit;
 
+-- ── 10. AI Studio: library, scripts, generations, monthly limit ──
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+-- an editor uploads into the character's folder
+insert into storage.objects (bucket_id, name) values ('studio-media', '10000000-0000-0000-0000-000000000001/ref.png');
+insert into public.studio_media (id, project_id, kind, path, mime) values
+  ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'image', '10000000-0000-0000-0000-000000000001/ref.png', 'image/png');
+select pg_temp.expect_error($q$insert into public.studio_media (project_id, kind, path) values ('10000000-0000-0000-0000-000000000001', 'image', 'elsewhere/x.png')$q$, 'row-level security');
+select pg_temp.expect_error($q$insert into public.studio_media (project_id, kind, source, path) values ('10000000-0000-0000-0000-000000000001', 'video', 'generated', '10000000-0000-0000-0000-000000000001/fake.mp4')$q$, 'row-level security');
+select pg_temp.expect_error($q$insert into public.studio_generations (project_id, tool, model) values ('10000000-0000-0000-0000-000000000001', 'image', 'x')$q$, 'permission denied');
+insert into public.studio_scripts (id, project_id, title, scenes) values ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Episode 1',
+  '[{"id":"s1","shot":"Mango yawns","line":"Five more minutes."},{"id":"s2","shot":"Mango falls asleep","line":""}]');
+-- start → submit → complete links the clip into scene s1
+select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'fal-ai/kling', 'Mango yawns',
+  '{"script_id":"40000000-0000-0000-0000-000000000001","scene_id":"s1","scene_role":"clip"}', '[]', 35);
+select public.studio_mark_submitted((select id from public.studio_generations limit 1), 'req-1');
+select public.studio_complete_generation((select id from public.studio_generations limit 1),
+  '[{"path":"10000000-0000-0000-0000-000000000001/gen-1.mp4","kind":"video","mime":"video/mp4","bytes":1000,"duration_ms":5000}]');
+do $$ begin assert (select status from public.studio_generations limit 1) = 'succeeded', 'job succeeded'; end $$;
+do $$ begin assert (select count(*) from public.studio_media where source = 'generated') = 1, 'output saved to the library'; end $$;
+do $$ begin assert (select scenes->0->>'clip_media' from public.studio_scripts) = (select id::text from public.studio_media where source = 'generated'), 'scene linked to clip'; end $$;
+do $$ begin assert (select scenes->1->>'clip_media' from public.studio_scripts) is null, 'other scenes untouched'; end $$;
+-- completing twice is harmless
+select public.studio_complete_generation((select id from public.studio_generations limit 1),
+  '[{"path":"10000000-0000-0000-0000-000000000001/gen-1.mp4","kind":"video"}]');
+do $$ begin assert (select count(*) from public.studio_media where source = 'generated') = 1, 'no duplicate output'; end $$;
+do $$ begin assert (select used_cents from public.studio_usage()) = 35, 'usage counted'; end $$;
+-- a job that failed before reaching the provider is free
+select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 8);
+select public.studio_end_generation((select id from public.studio_generations where status = 'queued'), 'failed', 'Provider down');
+do $$ begin assert (select used_cents from public.studio_usage()) = 35, 'unsubmitted failure not charged'; end $$;
+select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 990)$q$, 'monthly ai studio limit');
+select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 8);
+select pg_temp.expect_error($q$select public.studio_complete_generation((select id from public.studio_generations where status = 'queued'), '[{"path":"other/x.png","kind":"image"}]')$q$, 'stored with the character');
+select public.studio_end_generation((select id from public.studio_generations where status = 'queued'), 'canceled');
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.studio_media) = 0, 'stranger sees no media'; end $$;
+do $$ begin assert (select count(*) from public.studio_generations) = 0, 'stranger sees no jobs'; end $$;
+do $$ begin assert (select count(*) from storage.objects where bucket_id = 'studio-media') = 0, 'stranger cannot read files'; end $$;
+select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'image', 'm', 'p', '{}', '[]', 1)$q$, 'characters you can edit');
+select pg_temp.expect_error($q$insert into storage.objects (bucket_id, name) values ('studio-media', '10000000-0000-0000-0000-000000000001/x.png')$q$, 'row-level security');
+select pg_temp.expect_error($q$select public.admin_set_studio_limit('00000000-0000-0000-0000-00000000000c', 99999)$q$, 'staff only');
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+select public.admin_set_studio_limit('00000000-0000-0000-0000-00000000000b', 5000);
+do $$ begin assert (select limit_cents from public.studio_usage('00000000-0000-0000-0000-00000000000b')) = 5000, 'staff raised the limit'; end $$;
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 990);
+do $$ begin assert (select count(*) from public.studio_usage('00000000-0000-0000-0000-00000000000a')) = 0, 'cannot read someone else''s usage'; end $$;
+commit;
+
 \echo 'All RLS tests passed'

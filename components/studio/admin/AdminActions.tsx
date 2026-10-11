@@ -177,3 +177,23 @@ export function BanToggle({ userId, banned }: { userId: string; banned: boolean 
     </span>
   );
 }
+
+/** Sets how much AI Studio generation (provider cost) someone can use a month. */
+export function StudioLimit({ userId }: { userId: string }) {
+  const { busy, error, ok, call } = useRpc();
+  const [open, setOpen] = useState(false);
+  const [dollars, setDollars] = useState("");
+  if (!open) return <button type="button" className="rp-link" onClick={() => setOpen(true)}>AI limit</button>;
+  return (
+    <span className="hub-row-actions">
+      <input className="st-input adm-limit" inputMode="decimal" placeholder="$ a month" value={dollars} onChange={(e) => setDollars(e.target.value)} aria-label="Monthly AI Studio limit in dollars" />
+      <button type="button" className="btn st-small" disabled={busy || !/^\d+(\.\d{1,2})?$/.test(dollars.trim())}
+        onClick={async () => { if (await call("admin_set_studio_limit", { p_user: userId, p_cents: Math.round(Number(dollars) * 100) }, "Limit saved.")) setOpen(false); }}>
+        Save
+      </button>
+      <button type="button" className="rp-link" onClick={() => setOpen(false)}>Cancel</button>
+      {error && <small className="form-error">{error}</small>}
+      {ok && <small>{ok}</small>}
+    </span>
+  );
+}
