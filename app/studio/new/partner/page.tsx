@@ -8,10 +8,9 @@ export default function NewPartnershipPage() {
   return (
     <div className="st-stack">
       <div className="st-hello">
-        <Link href="/studio" className="st-back">← Projects</Link>
-        <span className="eyebrow">New partnership</span>
-        <h1>Partner with the tsayvish cast</h1>
-        <p className="lede">Tell us who you are and which characters you’d like to work with. Vish or Alexa will follow up.</p>
+        <div className="st-crumbs"><Link href="/studio">Projects</Link><span>/</span><span>New partnership</span></div>
+        <h1>Partner with tsayvish</h1>
+        <p className="st-sub">Tell us who you are and which characters you’d like to work with. Vish or Alexa will follow up.</p>
       </div>
       <PartnerForm />
     </div>

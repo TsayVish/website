@@ -17,8 +17,8 @@ export function ProjectArt({ project }: { project: Project }) {
   return member ? <Critter {...member} /> : null;
 }
 
+/** A soft tint of the character's color, for thumbnail backgrounds. */
 export function projectBackground(project: Project) {
-  if (project.type === "original") return `color-mix(in srgb, ${colorValue(project.color)} 40%, var(--surface))`;
-  const member = castByName(project.cast_members[0] ?? "");
-  return `color-mix(in srgb, ${member?.body ?? "var(--mint)"} 40%, var(--surface))`;
+  const base = project.type === "original" ? colorValue(project.color) : castByName(project.cast_members[0] ?? "")?.body ?? "var(--mint)";
+  return `color-mix(in srgb, ${base} 28%, var(--surface))`;
 }

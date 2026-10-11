@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { CharacterArt } from "@/components/art";
-import { ProjectCard } from "@/components/studio/ProjectCard";
+import { ProjectRow } from "@/components/studio/ProjectCard";
 import { StartCards } from "@/components/studio/StartCards";
+import { IconPlus } from "@/components/studio/icons";
 import { createClient } from "@/lib/supabase/server";
 import { PROJECT_COLUMNS, type Project } from "@/lib/types";
 
@@ -33,23 +33,28 @@ export default async function StudioHome({ searchParams }: { searchParams: Promi
 
   return (
     <div className="st-stack">
-      <div className="st-hello">
-        <span className="eyebrow">Studio</span>
-        <h1>{firstName ? `Hi ${firstName}.` : "Welcome."} What are we making?</h1>
+      <div className="st-pagehead">
+        <div>
+          <h1>Projects</h1>
+          <p className="st-sub">{firstName ? `Welcome back, ${firstName}.` : "Welcome back."} Start something new or pick up where you left off.</p>
+        </div>
+        <div className="st-actions">
+          <Link className="btn ghost" href="/studio/new/partner">New partnership</Link>
+          <Link className="btn" href="/studio/new/original"><IconPlus /> New original</Link>
+        </div>
       </div>
 
       <StartCards partnerFirst={p?.goal === "partner"} />
 
       <div className="st-section">
         <div className="st-section-head">
-          <h2>Your projects</h2>
+          <h2>All projects</h2>
           {all.length > 0 && (
-            <nav className="st-filters" aria-label="Filter projects">
+            <nav className="st-tabs" aria-label="Filter projects">
               {FILTERS.map((f) => (
                 <Link
                   key={f.key}
                   href={f.key === "all" ? "/studio" : `/studio?type=${f.key}`}
-                  className="chip"
                   aria-current={filter === f.key ? "page" : undefined}
                 >
                   {f.label} <span className="st-count">{count(f.key)}</span>
@@ -65,20 +70,20 @@ export default async function StudioHome({ searchParams }: { searchParams: Promi
           </p>
         ) : all.length === 0 ? (
           <div className="st-empty">
-            <div className="st-empty-art" aria-hidden="true">
-              <CharacterArt name="Empty" kind="Creature" color="var(--lilac)" prop="sparkle" />
-            </div>
-            <div>
-              <h3>No projects yet</h3>
-              <p>Pick one of the two options above to start. Every original and every partnership becomes its own project here.</p>
-            </div>
+            <h3>No projects yet</h3>
+            <p>Create an original or start a partnership. Each one becomes its own project here.</p>
           </div>
         ) : shown.length === 0 ? (
-          <p className="st-muted">No {filter === "original" ? "originals" : "partnerships"} yet.</p>
+          <div className="st-empty">
+            <p>No {filter === "original" ? "originals" : "partnerships"} yet.</p>
+          </div>
         ) : (
-          <div className="st-grid">
+          <div className="st-table" role="list">
+            <div className="st-row st-row-head" aria-hidden="true">
+              <span>Project</span><span>Type</span><span>Status</span><span className="st-date">Created</span>
+            </div>
             {shown.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectRow key={project.id} project={project} />
             ))}
           </div>
         )}

@@ -16,9 +16,8 @@ export default async function AccountPage() {
   return (
     <div className="st-stack st-narrow">
       <div className="st-hello">
-        <Link href="/studio" className="st-back">← Projects</Link>
-        <span className="eyebrow">Account</span>
-        <h1>Your account</h1>
+        <div className="st-crumbs"><Link href="/studio">Projects</Link><span>/</span><span>Account</span></div>
+        <h1>Account</h1>
       </div>
       <AccountForm email={user!.email ?? ""} initialName={profile?.full_name ?? ""} initialGoal={profile?.goal ?? "build"} />
     </div>

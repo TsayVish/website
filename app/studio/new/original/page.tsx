@@ -8,10 +8,9 @@ export default function NewOriginalPage() {
   return (
     <div className="st-stack">
       <div className="st-hello">
-        <Link href="/studio" className="st-back">← Projects</Link>
-        <span className="eyebrow">New original</span>
-        <h1>Make a character</h1>
-        <p className="lede">Any kind of character or persona. Switch on the services you want and we’ll pick them up from there.</p>
+        <div className="st-crumbs"><Link href="/studio">Projects</Link><span>/</span><span>New original</span></div>
+        <h1>Create an original</h1>
+        <p className="st-sub">Any kind of character or persona. Switch on the services you want and our team picks them up from there.</p>
       </div>
       <CharacterBuilder mode="save" />
     </div>

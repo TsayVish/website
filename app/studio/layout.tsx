@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { SignOutButton } from "@/components/studio/SignOutButton";
+import { StudioNav } from "@/components/studio/StudioNav";
 import { createClient } from "@/lib/supabase/server";
 import "./studio.css";
 
@@ -16,26 +16,20 @@ export default async function StudioLayout({ children }: { children: React.React
   if (!user) redirect("/login?mode=login");
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
-  const name = (profile as { full_name: string | null } | null)?.full_name || user.email || "";
+  const name = (profile as { full_name: string | null } | null)?.full_name || "";
 
   return (
     <div className="st">
-      <header className="st-header">
-        <div className="wrap st-header-row">
-          <Logo />
-          <nav className="st-links" aria-label="Studio">
-            <Link href="/studio">Projects</Link>
-            <Link href="/studio/new/original">New original</Link>
-            <Link href="/studio/new/partner">Partner with us</Link>
-            <Link href="/studio/account">Account</Link>
-          </nav>
-          <div className="st-who">
-            <span className="st-name" title={user.email ?? undefined}>{name}</span>
-            <SignOutButton />
-          </div>
+      <aside className="st-side">
+        <Logo />
+        <StudioNav />
+        <div className="st-user">
+          {name && <span className="st-user-name">{name}</span>}
+          <span className="st-user-mail">{user.email}</span>
+          <SignOutButton />
         </div>
-      </header>
-      <main className="wrap st-main">{children}</main>
+      </aside>
+      <main className="st-main">{children}</main>
     </div>
   );
 }

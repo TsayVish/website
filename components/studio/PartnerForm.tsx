@@ -66,8 +66,10 @@ export function PartnerForm() {
                 <span className="st-castopt-pic" style={{ background: `color-mix(in srgb, ${c.body} 40%, var(--surface))` }}>
                   <Critter {...c} />
                 </span>
-                <b>{c.name}</b>
-                <small>{c.species}</small>
+                <span className="st-castopt-text">
+                  <b>{c.name}</b>
+                  <small>{c.species}</small>
+                </span>
               </button>
             ))}
           </div>

@@ -21,25 +21,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="st-stack">
-      <Link href="/studio" className="st-back">← Projects</Link>
+      <div className="st-crumbs">
+        <Link href="/studio">Projects</Link><span>/</span><span>{project.type === "original" ? "Original" : "Partnership"}</span>
+      </div>
 
       <div className="st-project-head">
         <div className="st-project-pic" style={{ background: projectBackground(project) }}>
           <ProjectArt project={project} />
         </div>
         <div className="st-project-meta">
-          <span className={`st-pill ${project.type}`}>{project.type === "original" ? "Original" : "Partnership"}</span>
           <h1>{project.name}</h1>
           {project.type === "original" ? (
-            <>
-              <p className="st-meta">{project.personality} · {project.kind} · created {created}</p>
-              <p className="lede">
-                {project.description ? `${project.description.replace(/[.!?]+$/, "")}. ` : ""}
-                {moodByName(project.personality).line}
-              </p>
-            </>
+            <p className="st-meta">
+              <span className="st-pill original">Original</span> · {project.personality} {project.kind?.toLowerCase()} · created {created}
+            </p>
           ) : (
-            <p className="st-meta">{project.interest} · {project.company} · sent {created}</p>
+            <p className="st-meta">
+              <span className="st-pill partnership">Partnership</span> · {project.company} · sent {created}
+            </p>
           )}
         </div>
       </div>
@@ -51,7 +50,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             initial={Object.fromEntries((project.project_services ?? []).map((s) => [s.service, s.status as ServiceStatus]))}
           />
           <div className="panel st-next">
-            <b>What happens next</b>
+            <b className="st-panel-title">About {project.name}</b>
+            <p>
+              {project.description ? `${project.description.replace(/[.!?]+$/, "")}. ` : ""}
+              {moodByName(project.personality).line}
+            </p>
+            <b className="st-panel-title">What happens next</b>
             <p>Each service you switch on goes to our team as a request. When it’s set up, it shows as <span className="st-status active">Active</span> here.</p>
             <p>Want to change the look or personality? Start a new original for now. Editing is coming soon.</p>
             <DeleteProject projectId={project.id} label="Delete this project" />
@@ -89,7 +93,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
           <div className="panel st-next">
-            <b>Your message</b>
+            <b className="st-panel-title">Details</b>
+            <dl className="st-dl">
+              <dt>Company</dt><dd>{project.company}</dd>
+              <dt>Type</dt><dd>{project.interest}</dd>
+              <dt>Sent</dt><dd>{created}</dd>
+            </dl>
+            <b className="st-panel-title">Your message</b>
             <p className="st-message">{project.message || "No message added."}</p>
             <DeleteProject projectId={project.id} label="Withdraw this request" />
           </div>
