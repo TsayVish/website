@@ -66,7 +66,8 @@ export default async function ProjectPage({
 
   // Character record tabs load only what they show.
   const { data: canEditData } = await supabase.rpc("can_edit_project", { pid: project.id });
-  const canEdit = canEditData === true;
+  const { data: { user: viewer } } = await supabase.auth.getUser();
+  const canEdit = canEditData === true || project.owner_id === viewer?.id;
   const assets = isOriginal && current === "assets"
     ? (((await supabase.from("character_assets").select(ASSET_COLUMNS).eq("project_id", project.id).order("created_at", { ascending: false })).data ?? []) as CharacterAsset[])
     : [];
