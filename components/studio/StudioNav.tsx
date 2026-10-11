@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconGrid, IconHandshake, IconSpark, IconUser } from "./icons";
+import { IconGrid, IconHandshake, IconSpark, IconStore, IconUser } from "./icons";
 
 const LINKS = [
   { href: "/studio", label: "Projects", icon: <IconGrid />, exact: true },
   { href: "/studio/new/original", label: "New original", icon: <IconSpark /> },
   { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake /> },
+  { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore /> },
   { href: "/studio/account", label: "Account", icon: <IconUser /> },
 ];
 

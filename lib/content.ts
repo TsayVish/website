@@ -48,7 +48,9 @@ export const LANES: Lane[] = [
 ];
 
 /* Character builder options. */
-export const KINDS: CharacterKind[] = ["Person", "Creature", "Robot", "Food", "Object", "Animal"];
+export const KINDS: CharacterKind[] = ["Person", "Creature", "Robot", "Food", "Object", "Animal", "Custom"];
+
+export const kindLabel = (k: string | null | undefined) => (k === "Custom" ? "Custom upload" : k ?? "");
 
 export const COLORS: { name: string; value: string }[] = [
   { name: "Mint", value: "var(--mint)" },

@@ -8,7 +8,7 @@ const BLUSH = "#FF6F9E";
 
 export type PropKind = "sweat" | "leaf" | "sparkle" | "zz" | "band" | "bubble";
 export type EarKind = "round" | "pointy" | "small" | "tiny" | "frog";
-export type CharacterKind = "Person" | "Creature" | "Robot" | "Food" | "Object" | "Animal";
+export type CharacterKind = "Person" | "Creature" | "Robot" | "Food" | "Object" | "Animal" | "Custom";
 
 /* ---------- small accessories that carry a character's mood ---------- */
 
@@ -205,6 +205,7 @@ const BANDS: Record<CharacterKind, Band> = {
   Food: [24, 96, 48],
   Object: [22, 92, 44],
   Animal: [22, 98, 50],
+  Custom: [22, 98, 50],
 };
 
 export type CharacterSpec = {
@@ -216,6 +217,16 @@ export type CharacterSpec = {
 };
 
 export function CharacterArt({ name, kind, color, prop, sleepy }: CharacterSpec) {
+  if (kind === "Custom") {
+    // Placeholder shown until a picture is uploaded.
+    return (
+      <svg viewBox="0 0 120 120" role="img" aria-label={`${name}: no picture yet`}>
+        <rect x={16} y={16} width={88} height={88} rx={20} fill={color} stroke={INK} strokeWidth={3} strokeDasharray="8 7" />
+        <path d="M60 78V44M46 57l14-14 14 14" fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M42 86h36" stroke={INK} strokeWidth={4} strokeLinecap="round" />
+      </svg>
+    );
+  }
   if (kind === "Animal") {
     return <Critter name={name} species="animal" body={color} ears="round" prop={prop} eyes={sleepy ? "sleepy" : "open"} />;
   }
@@ -326,4 +337,14 @@ function Mug({ color, sleepy }: Part) {
       <Face cx={56} eyeY={64} cheekY={76} mouthY={80} sleepy={sleepy} />
     </>
   );
+}
+
+/** A character's picture: the uploaded image for Custom characters, otherwise the drawing. */
+export function CharacterPicture(props: CharacterSpec & { imageUrl?: string | null }) {
+  const { imageUrl, ...spec } = props;
+  if (spec.kind === "Custom" && imageUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img className="char-img" src={imageUrl} alt={spec.name} loading="lazy" />;
+  }
+  return <CharacterArt {...spec} />;
 }

@@ -266,3 +266,15 @@ footer .wrap{display:flex; flex-wrap:wrap; justify-content:space-between; gap:12
 /* shared form bits */
 .form-error{margin:0; color:var(--danger); font-size:.9rem}
 .btn:disabled{opacity:.6; cursor:progress; transform:none; box-shadow:none}
+
+/* uploaded character pictures fill their frame */
+img.char-img{display:block; width:100%; height:100%; object-fit:cover; border-radius:inherit}
+.pic:has(> img.char-img), .st-thumb:has(> img.char-img), .st-project-pic:has(> img.char-img), .mk-art:has(> img.char-img){overflow:hidden}
+.pic > img.char-img{width:100%}
+.form-ok{margin:0; color:var(--ink); font-weight:600; font-size:.9rem}
+.visually-hidden{position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+.upload{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px; border:2px dashed var(--line); border-radius:12px; cursor:pointer}
+.upload:hover{border-color:var(--ink)}
+.upload-btn{font-weight:600; padding:7px 14px; border-radius:999px; background:var(--ink); color:var(--paper); font-size:.9rem}
+.upload-hint{color:var(--muted); font-size:.85rem; overflow-wrap:anywhere}
+.field:has(input[type=file]:focus-visible) .upload{outline:3px solid var(--accent); outline-offset:2px}
