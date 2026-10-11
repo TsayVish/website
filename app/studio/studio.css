@@ -904,3 +904,55 @@ a.st-row:hover{background:var(--st-bg)}
 .st-tabs a{flex:none; white-space:nowrap}
 .st-section-head{min-width:0}
 @media (max-width:860px){ .st{grid-template-rows:auto 1fr} }
+
+/* ───────────────────────── Mobile polish ───────────────────────── */
+/* Buttons inside table rows keep their own colors. */
+.st-row a.btn:not(.ghost){color:var(--paper)}
+/* Setup checklist: rows run edge to edge inside the panel. */
+.st .panel.hub-setup{padding:0; gap:0}
+/* Calmer type for small print in toggles and previews (the site uses mono there). */
+.st .toggle .t small, .st .infra-head span, .st .preview .species{font-family:var(--body); letter-spacing:0}
+.st .preview .species{text-transform:none; font-size:.78rem; color:var(--muted)}
+.st .toggle .t small{font-size:.78rem; color:var(--muted)}
+/* Post byline: keep the avatar round. */
+.post-byline > .st-avatar{flex:none}
+.post-byline > span:not(.st-avatar){display:grid; flex:1; min-width:0}
+
+@media (max-width:760px){
+  /* Project service table: name + status on one line, details below. */
+  .st-svc-row{grid-template-columns:minmax(0,1fr) auto; gap:4px 12px}
+  .st-svc-row > :first-child{grid-column:1; grid-row:1}
+  .st-svc-row > :nth-child(2){grid-column:2; grid-row:1}
+  .st-svc-row > :nth-child(3){grid-column:1 / -1; grid-row:2; padding-left:0; font-size:.8rem}
+  .st-svc-row > .st-date{display:none}
+  .st-svc-row .st-proj-text b{white-space:normal}
+  .st-svc-row .st-proj-text small{-webkit-line-clamp:2}
+  /* Section tabs stay on one scrollable line. */
+  .st-ptabs{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; margin-inline:-16px; padding-inline:12px}
+  .st-ptabs::-webkit-scrollbar{display:none}
+  .st-ptabs a{padding:10px 10px}
+  /* Edge fade on scrolling tab bars hints there's more. */
+  .st-tabs, .hub-nav, .hub-tabs, .st-ptabs, .dc-chips{-webkit-mask-image:linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image:linear-gradient(90deg, #000 calc(100% - 28px), transparent)}
+  .hub-nav{margin-inline:-16px; padding-inline:12px}
+  /* Page headers: title, then actions full width. */
+  .st-pagehead{align-items:stretch}
+  .st-pagehead .st-actions{width:100%}
+  .st h1{font-size:1.3rem}
+  .st .panel{padding:14px}
+  /* Deal hero stacks neatly. */
+  .st .dl-hero{padding:16px}
+  .dl-hero-amount{justify-items:start; text-align:left}
+  .dl-hero-text h1{font-size:1.2rem}
+  /* Offer rows: actions wrap under the amount. */
+  .of-item-foot{justify-content:flex-start}
+  .nt-item{grid-template-columns:32px minmax(0,1fr) 8px; gap:10px; padding:12px}
+  .nt-item .st-avatar{width:32px !important; height:32px !important}
+  /* Messages fill the screen under the top bar. */
+  .chat{height:calc(100dvh - 61px - 32px); min-height:420px}
+  /* Profile header */
+  .pf-head{gap:12px}
+  .pf-actions{width:100%}
+}
+/* Phone: a dot on the menu button when there are unread messages or notifications. */
+.st-burger{position:relative}
+.st-side:has(.st-badge) .st-burger::after{content:""; position:absolute; top:7px; right:7px; width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 2px var(--st-panel)}
