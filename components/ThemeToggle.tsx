@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { applyTheme, effectiveTheme, readTheme, type ThemeChoice } from "@/lib/theme";
+import { DEFAULT_THEME, applyTheme, effectiveTheme, readTheme, type ThemeChoice } from "@/lib/theme";
 
 /** Keeps every toggle on the page in sync with the saved choice. */
 function useThemeChoice() {
-  const [choice, setChoice] = useState<ThemeChoice>("system");
+  const [choice, setChoice] = useState<ThemeChoice>(DEFAULT_THEME);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const saved = readTheme();
     // Backup for the boot script in the root layout: make sure a saved choice is applied.
-    if (saved !== "system" && document.documentElement.getAttribute("data-theme") !== saved) {
-      document.documentElement.setAttribute("data-theme", saved);
-    }
+    const root = document.documentElement;
+    if (saved === "system") root.removeAttribute("data-theme");
+    else if (root.getAttribute("data-theme") !== saved) root.setAttribute("data-theme", saved);
     setChoice(saved);
     setMounted(true);
     const onChange = (e: Event) => setChoice((e as CustomEvent<ThemeChoice>).detail);
@@ -50,9 +50,9 @@ export function ThemeButton({ className = "theme-btn" }: { className?: string })
 export function ThemeSwitch() {
   const { choice, set } = useThemeChoice();
   const options: { value: ThemeChoice; label: string }[] = [
-    { value: "system", label: "Match my device" },
     { value: "light", label: "Light" },
     { value: "dark", label: "Dark" },
+    { value: "system", label: "Match my device" },
   ];
   return (
     <div className="chips" role="radiogroup" aria-label="Theme">

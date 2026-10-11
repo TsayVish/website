@@ -48,7 +48,8 @@ export function CharacterBuilder({ mode, initial }: { mode: "preview" | "save" |
   const mood = MOODS.find((m) => m.name === moodName) ?? MOODS[0];
   const color = COLORS[colorIdx].value;
   const displayName = name.trim() || "Your character";
-  const bio = desc.trim() ? `${desc.trim().replace(/[.!?]+$/, "")}. ${mood.line}` : mood.line;
+  // Show only what the person wrote. The home-page demo shows a sample line until they type.
+  const bio = desc.trim() || (mode === "preview" ? mood.line : "");
   const onCount = infra.filter(Boolean).length;
   const showInfra = mode !== "edit";
 
@@ -209,7 +210,7 @@ export function CharacterBuilder({ mode, initial }: { mode: "preview" | "save" |
           <div className="meta">
             <span className="species">{mood.name} · {kindLabel(kind)}</span>
             <h3>{displayName}</h3>
-            <p>{bio}</p>
+            {bio ? <p>{bio}</p> : <p className="bio-empty">No description yet.</p>}
           </div>
         </div>
 

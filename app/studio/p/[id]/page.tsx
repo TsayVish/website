@@ -7,7 +7,7 @@ import { DeleteProject } from "@/components/studio/DeleteProject";
 import { PartnerForm } from "@/components/studio/PartnerForm";
 import { ProjectArt, projectBackground } from "@/components/studio/ProjectArt";
 import { ServiceForm } from "@/components/studio/ServiceForm";
-import { castByName, kindLabel, moodByName } from "@/lib/content";
+import { castByName, kindLabel } from "@/lib/content";
 import { DEAL_FIELDS, SERVICE_DEFS } from "@/lib/services";
 import { createClient } from "@/lib/supabase/server";
 import { PROJECT_COLUMNS, STATUS_LABEL, type Details, type Project, type ProjectStatus, type ServiceStatus } from "@/lib/types";
@@ -109,10 +109,7 @@ export default async function ProjectPage({
           <div className="st-two st-even">
             <div className="panel st-next">
               <b className="st-panel-title">About {project.name}</b>
-              <p>
-                {project.description ? `${project.description.replace(/[.!?]+$/, "")}. ` : ""}
-                {moodByName(project.personality).line}
-              </p>
+              <p>{project.description || "No description yet. Add one in the Character tab."}</p>
               <Link className="btn ghost st-small" href={href("character")}>Edit character</Link>
             </div>
             <div className="panel st-next">

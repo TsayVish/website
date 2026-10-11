@@ -290,3 +290,4 @@ img.char-img{display:block; width:100%; height:100%; object-fit:cover; border-ra
   .nav .theme-btn{width:34px; height:34px}
   .logo{font-size:1.2rem}
 }
+.bio-empty{color:var(--muted); font-style:italic}

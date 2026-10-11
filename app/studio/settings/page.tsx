@@ -56,7 +56,7 @@ export default async function SettingsPage() {
       <section className="panel" id="appearance" aria-labelledby="appearance-title">
         <div className="st-set-head">
           <h2 id="appearance-title">Appearance</h2>
-          <p className="st-muted">Choose light or dark, or follow your device. Saved in this browser.</p>
+          <p className="st-muted">Light is the default. Switch to dark, or follow your device’s setting. Saved in this browser.</p>
         </div>
         <ThemeSwitch />
       </section>
