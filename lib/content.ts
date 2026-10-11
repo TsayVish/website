@@ -7,15 +7,15 @@ export const CONTACT_EMAIL = "hello@tsayvish.com";
 export type CastMember = CritterSpec & { line: string; status: string; hot?: boolean; image: string };
 
 export const CAST: CastMember[] = [
-  { name: "Burnout Bunny", species: "Bunny", body: "var(--lilac)", ears: "round", eyes: "sleepy", prop: "zz",
-    image: "/cast/burnout-bunny.webp",
-    line: "Running on three hours of sleep and one iced coffee. Too tired to be mad. Mad anyway.", status: "Breakout signal", hot: true },
+  { name: "Avoidant Bunny", species: "Bunny", body: "var(--lilac)", ears: "round", eyes: "sleepy", prop: "zz",
+    image: "/cast/avoidant-bunny.webp",
+    line: "Hides behind her ears when feelings come up. Left you on read, lovingly. Will reply when emotionally ready.", status: "Breakout signal", hot: true },
   { name: "Delulu Duck", species: "Duck", body: "var(--butter)", ears: "tiny", prop: "sparkle",
     image: "/cast/delulu-duck.webp",
     line: "Fully convinced this is their year. It has been their year since 2019. Manifests in the group chat.", status: "Breakout signal", hot: true },
-  { name: "Avoidant Bear", species: "Bear", body: "var(--mint)", ears: "round", eyes: "sleepy", prop: "leaf",
-    image: "/cast/avoidant-bear.webp",
-    line: "Left you on read, lovingly. Will reply when emotionally ready. Has a book open so nobody talks to him.", status: "Testing" },
+  { name: "Burnout Bear", species: "Bear", body: "var(--mint)", ears: "round", eyes: "sleepy", prop: "leaf",
+    image: "/cast/burnout-bear.webp",
+    line: "Running on three hours of sleep and one iced coffee. Reads productivity books instead of resting. Too tired to be mad. Mad anyway.", status: "Testing" },
 ];
 
 /* Everything tsayvish handles, grouped into four lanes. */

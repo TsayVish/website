@@ -101,7 +101,7 @@ export function PartnerForm({ initial }: { initial?: Project }) {
         </div>
         <div className="field">
           <label htmlFor="pf-name">Project name <span className="opt-hint">(optional)</span></label>
-          <input className="st-input" id="pf-name" name="projectName" maxLength={60} placeholder="e.g. Burnout Bunny plush for spring" defaultValue={initial?.name ?? ""} />
+          <input className="st-input" id="pf-name" name="projectName" maxLength={60} placeholder="e.g. Avoidant Bunny plush for spring" defaultValue={initial?.name ?? ""} />
         </div>
         <div className="field">
           <label htmlFor="pf-message">Tell us about it <span className="opt-hint">(optional)</span></label>
