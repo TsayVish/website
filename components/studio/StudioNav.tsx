@@ -16,7 +16,7 @@ const MAIN: NavLink[] = [
   { href: "/studio/messages", label: "Messages", icon: <IconChat />, match: (p) => p.startsWith("/studio/messages"), badge: "messages" },
   { href: "/studio/notifications", label: "Notifications", icon: <IconBell />, match: (p) => p.startsWith("/studio/notifications"), badge: "notes" },
   { href: "/studio/projects", label: "Projects", icon: <IconGrid />, match: (p) => p.startsWith("/studio/projects") || p.startsWith("/studio/p/") },
-  { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") },
+  { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") || p.startsWith("/studio/deals") },
 ];
 
 const CREATE: NavLink[] = [

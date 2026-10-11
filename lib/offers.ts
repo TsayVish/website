@@ -9,10 +9,11 @@ export type Offer = {
   status: OfferStatus;
   created_at: string;
   responded_at: string | null;
+  paid_at: string | null;
 };
-export const OFFER_COLUMNS = "id, listing_id, buyer_id, seller_id, amount, message, status, created_at, responded_at";
+export const OFFER_COLUMNS = "id, listing_id, buyer_id, seller_id, amount, message, status, created_at, responded_at, paid_at";
 
-export type NotificationType = "offer_received" | "offer_accepted" | "offer_declined" | "offer_withdrawn" | "new_follower";
+export type NotificationType = "offer_received" | "offer_accepted" | "offer_declined" | "offer_withdrawn" | "offer_paid" | "new_follower";
 export type NotificationRow = {
   id: string;
   type: NotificationType;
@@ -53,3 +54,5 @@ export const agoInline = (iso: string) => {
   const a = ago(iso);
   return a === "Just now" || a === "Yesterday" ? a.toLowerCase() : a;
 };
+
+export const dealHref = (offerId: string) => `/studio/deals/${offerId}`;

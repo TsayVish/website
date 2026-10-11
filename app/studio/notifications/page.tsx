@@ -81,6 +81,11 @@ export default async function NotificationsPage({ searchParams }: { searchParams
             </div>
           ),
         };
+      case "offer_paid":
+        return {
+          text: <>{who} confirmed your {amt} payment for {listingLink(n.listing_id)}</>,
+          extra: o && <div className="of-item-foot"><span className="st-status active">Paid</span><Link className="btn ghost st-small" href={`/studio/deals/${o.id}`}>View purchase</Link></div>,
+        };
       case "offer_withdrawn":
         return { text: <>{who} withdrew their {amt} offer for {listingLink(n.listing_id)}</> };
       case "new_follower":
@@ -125,7 +130,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     <div className="st-stack">
       <MarkNotificationsRead me={me} unread={unreadCount} />
       <LiveRefresh table="notifications" filter={`user_id=eq.${me}`} />
-      <div className="st-pagehead"><div><h1>Notifications</h1><p className="st-sub">Offers, replies and new followers.</p></div></div>
+      <div className="st-pagehead"><div><h1>Notifications</h1><p className="st-sub">Offers, purchases and new followers.</p></div></div>
       <HubTabs current={tab} tabs={[
         { key: "all", label: "All", href: "/studio/notifications" },
         { key: "unread", label: "Unread", href: "/studio/notifications?tab=unread", count: unreadCount },

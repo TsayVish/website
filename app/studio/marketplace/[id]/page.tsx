@@ -7,7 +7,7 @@ import { MessageButton } from "@/components/studio/MessageButton";
 import { Avatar } from "@/components/studio/Avatar";
 import { MakeOffer } from "@/components/studio/offers/MakeOffer";
 import { OfferActions } from "@/components/studio/offers/OfferActions";
-import { OFFER_COLUMNS, OFFER_STATUS_CLASS, OFFER_STATUS_LABEL, ago, agoInline, money, offerDraft, type Offer } from "@/lib/offers";
+import { OFFER_COLUMNS, OFFER_STATUS_CLASS, OFFER_STATUS_LABEL, ago, agoInline, dealHref, money, offerDraft, type Offer } from "@/lib/offers";
 import { ReportButton } from "@/components/studio/social/ReportButton";
 import { kindLabel } from "@/lib/content";
 import { createClient } from "@/lib/supabase/server";
@@ -33,6 +33,8 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const myOpen = !mine ? offers.find((o) => o.status === "pending") : undefined;
   const myLatest = !mine ? offers[0] : undefined;
   const sellerName = listing.seller_name || "the seller";
+  const accepted = offers.filter((o) => o.status === "accepted");
+  const myPurchase = !mine ? accepted[0] : undefined;
   const listed = new Date(listing.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   return (
@@ -49,6 +51,27 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           </p>
         </div>
       </div>
+
+      {myPurchase && (
+        <div className="dl-banner">
+          <span className="dl-banner-mark" aria-hidden="true">✓</span>
+          <span className="dl-banner-text">
+            <b>You {listing.type === "service" ? "hired" : "licensed"} this for {money(myPurchase.amount)}</b>
+            <small>{sellerName} accepted your offer {agoInline(myPurchase.responded_at ?? myPurchase.created_at)} · {myPurchase.paid_at ? "Paid" : "Awaiting payment"}</small>
+          </span>
+          <Link className="btn st-small" href={dealHref(myPurchase.id)}>View purchase</Link>
+        </div>
+      )}
+      {mine && accepted.length > 0 && (
+        <div className="dl-banner">
+          <span className="dl-banner-mark" aria-hidden="true">✓</span>
+          <span className="dl-banner-text">
+            <b>{accepted.length === 1 ? `Sold to ${buyers.get(accepted[0].buyer_id)?.full_name || "a member"} for ${money(accepted[0].amount)}` : `${accepted.length} accepted offers · ${money(accepted.reduce((a, o) => a + Number(o.amount), 0))} total`}</b>
+            <small>{accepted.length === 1 ? `Accepted ${agoInline(accepted[0].responded_at ?? accepted[0].created_at)} · ${accepted[0].paid_at ? "Paid" : "Awaiting payment"}` : "See each sale for payment status."}</small>
+          </span>
+          <Link className="btn st-small" href={accepted.length === 1 ? dealHref(accepted[0].id) : "/studio/deals?tab=sales"}>{accepted.length === 1 ? "View sale" : "View sales"}</Link>
+        </div>
+      )}
 
       <div className="st-two">
         <div className="panel">

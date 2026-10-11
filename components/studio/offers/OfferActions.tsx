@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MessageButton } from "@/components/studio/MessageButton";
 import { createClient } from "@/lib/supabase/client";
-import type { OfferStatus } from "@/lib/offers";
+import { dealHref, type OfferStatus } from "@/lib/offers";
 
 /** Accept / decline (seller), withdraw (buyer), and message the other person, for one offer. */
 export function OfferActions({
@@ -44,6 +45,9 @@ export function OfferActions({
           <button type="button" className="btn st-small" disabled={!!busy} onClick={() => run("accepted")}>{busy === "accepted" ? "Accepting…" : "Accept"}</button>
           <button type="button" className="btn ghost st-small" disabled={!!busy} onClick={() => run("declined")}>{busy === "declined" ? "Declining…" : "Decline"}</button>
         </>
+      )}
+      {current === "accepted" && (
+        <Link className="btn st-small" href={dealHref(offerId)}>{role === "seller" ? "View sale" : "View purchase"}</Link>
       )}
       <MessageButton userId={otherId} label={`Message ${first}`} className="btn ghost st-small" draft={draft} />
       {current === "pending" && role === "buyer" && (

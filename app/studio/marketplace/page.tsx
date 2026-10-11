@@ -37,8 +37,12 @@ export default async function MarketplacePage({
   if (filter === "character" || filter === "service") query = query.eq("type", filter);
   if (cat) query = query.contains("categories", [cat]);
   if (q) query = query.or(`title.ilike.%${q}%,summary.ilike.%${q}%,category.ilike.%${q}%,seller_name.ilike.%${q}%`);
-  const { data, error } = await query;
+  const [{ data, error }, { data: boughtRows }] = await Promise.all([
+    query,
+    supabase.from("offers").select("listing_id").eq("buyer_id", user!.id).eq("status", "accepted"),
+  ]);
   const listings = (data ?? []) as unknown as Listing[];
+  const bought = new Set(((boughtRows ?? []) as { listing_id: string }[]).map((r) => r.listing_id));
 
   const link = (key: string) => {
     const params = new URLSearchParams();
@@ -66,6 +70,8 @@ export default async function MarketplacePage({
           {FILTERS.map((f) => (
             <Link key={f.key} href={link(f.key)} aria-current={filter === f.key ? "page" : undefined}>{f.label}</Link>
           ))}
+          <Link href="/studio/deals">Purchases</Link>
+          <Link href="/studio/deals?tab=sales">Sales</Link>
         </nav>
         <form className="mk-search" action="/studio/marketplace" role="search">
           {filter !== "all" && <input type="hidden" name="type" value={filter} />}
@@ -95,7 +101,7 @@ export default async function MarketplacePage({
       ) : (
         <div className="mk-grid">
           {listings.map((l) => (
-            <ListingCard key={l.id} listing={l} mine={l.owner_id === user!.id} />
+            <ListingCard key={l.id} listing={l} mine={l.owner_id === user!.id} purchased={bought.has(l.id)} />
           ))}
         </div>
       )}

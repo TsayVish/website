@@ -1048,3 +1048,62 @@ create policy "Profiles: offer parties and followers read" on public.profiles
                or (o.seller_id = profiles.id and o.buyer_id = (select auth.uid())))
     or exists (select 1 from public.follows f
                where f.follower_id = profiles.id and f.creator_id = (select auth.uid())));
+
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- Update 9: accepted offers become deals (purchases and sales).
+-- Safe to run again.
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- The seller confirms when they've been paid.
+alter table public.offers add column if not exists paid_at timestamptz;
+
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check check (
+  type in ('offer_received', 'offer_accepted', 'offer_declined', 'offer_withdrawn', 'offer_paid', 'new_follower'));
+
+create or replace function public.mark_offer_paid(offer uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  update public.offers set paid_at = now()
+  where id = offer and seller_id = auth.uid() and status = 'accepted' and paid_at is null;
+  if not found then raise exception 'That deal can’t be marked as paid'; end if;
+end;
+$$;
+revoke all on function public.mark_offer_paid(uuid) from public, anon;
+grant execute on function public.mark_offer_paid(uuid) to authenticated;
+
+create or replace function public.notify_offer()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+    values (new.seller_id, 'offer_received', new.buyer_id, new.id, new.listing_id);
+  elsif new.status is distinct from old.status then
+    if new.status in ('accepted', 'declined') then
+      insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+      values (new.buyer_id, 'offer_' || new.status, new.seller_id, new.id, new.listing_id);
+    elsif new.status = 'withdrawn' then
+      insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+      values (new.seller_id, 'offer_withdrawn', new.buyer_id, new.id, new.listing_id);
+    end if;
+  elsif new.paid_at is not null and old.paid_at is null then
+    insert into public.notifications (user_id, type, actor_id, offer_id, listing_id)
+    values (new.buyer_id, 'offer_paid', new.seller_id, new.id, new.listing_id);
+  end if;
+  return new;
+end;
+$$;
+
+-- Buyers keep seeing what they bought, even if the seller later hides the listing.
+drop policy if exists "Listings: buyers read" on public.listings;
+create policy "Listings: buyers read" on public.listings
+  for select to authenticated using (
+    exists (select 1 from public.offers o
+            where o.listing_id = listings.id and o.buyer_id = (select auth.uid()) and o.status = 'accepted'));
