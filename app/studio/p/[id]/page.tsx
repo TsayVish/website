@@ -98,6 +98,9 @@ export default async function ProjectPage({
     data: { user },
   } = await supabase.auth.getUser();
   const isCreator = project.owner_id === user?.id;
+  const ownerName = !isCreator
+    ? ((await supabase.from("profiles").select("full_name").eq("id", project.owner_id).maybeSingle()).data as { full_name: string | null } | null)?.full_name ?? null
+    : null;
   let editableWorkspaces: { id: string; name: string }[] = [];
   let workspaceName: string | null = null;
   if (isOriginal && current === "overview") {
@@ -191,7 +194,9 @@ export default async function ProjectPage({
               {isCreator ? (
                 <MoveToWorkspace projectId={project.id} current={project.workspace_id ?? null} workspaces={editableWorkspaces} />
               ) : (
-                <p className="st-help">Shared with you through {workspaceName ?? "a workspace"}.</p>
+                <p className="st-help">
+                  {workspaceName ? <>Shared with you through {workspaceName}.</> : <>Made by <Link href={`/studio/u/${project.owner_id}`}>{ownerName || "another member"}</Link>. You can see it because you’re tsayvish staff.</>}
+                </p>
               )}
               {canEdit && <Link className="btn ghost st-small" href={href("character")}>Edit character</Link>}
             </div>

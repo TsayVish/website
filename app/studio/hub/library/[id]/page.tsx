@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostEditor } from "@/components/studio/hub/PostEditor";
 import { POST_COLUMNS, type Post } from "@/lib/hub";
+import { myProjectsFilter } from "@/lib/mine";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Edit post" };
@@ -13,9 +14,10 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const mine = await myProjectsFilter(supabase, user?.id ?? "");
   const [{ data }, { data: projects }] = await Promise.all([
     supabase.from("posts").select(POST_COLUMNS).eq("id", id).maybeSingle(),
-    supabase.from("projects").select("id, name").order("created_at", { ascending: false }),
+    supabase.from("projects").select("id, name").or(mine).order("created_at", { ascending: false }),
   ]);
   const post = data as Post | null;
   if (!post || post.owner_id !== user!.id) notFound();

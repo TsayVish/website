@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { myProjectsFilter } from "@/lib/mine";
 import { DeleteProject } from "@/components/studio/DeleteProject";
 import { ProjectArt, projectBackground } from "@/components/studio/ProjectArt";
 import { EmptyState } from "@/components/studio/hub/EmptyState";
@@ -27,10 +28,11 @@ export default async function CharactersPage({ searchParams }: { searchParams: P
   const { data: wsRows } = await supabase.from("workspaces").select("id, name").order("name");
   const workspaces = (wsRows ?? []) as { id: string; name: string }[];
   const ws = sp.ws === "mine" ? "mine" : workspaces.some((w) => w.id === sp.ws) ? (sp.ws as string) : null;
+  const mine = await myProjectsFilter(supabase, user!.id);
 
   // Filters run in the database, so hundreds of characters stay fast.
   const base = () => {
-    let query = supabase.from("projects").select(PROJECT_COLUMNS, { count: "exact" }).eq("type", "original");
+    let query = supabase.from("projects").select(PROJECT_COLUMNS, { count: "exact" }).eq("type", "original").or(mine);
     if (ws === "mine") query = query.is("workspace_id", null).eq("owner_id", user!.id);
     else if (ws) query = query.eq("workspace_id", ws);
     if (q) query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
@@ -43,8 +45,8 @@ export default async function CharactersPage({ searchParams }: { searchParams: P
   const [{ data, count: shownCount }, { data: listingRows }, allRes, upRes] = await Promise.all([
     listQuery.order("created_at", { ascending: false }).range(0, limit),
     supabase.from("listings").select("id, project_id, status").eq("owner_id", user!.id),
-    (() => { let c = supabase.from("projects").select("id", head).eq("type", "original"); if (ws === "mine") c = c.is("workspace_id", null).eq("owner_id", user!.id); else if (ws) c = c.eq("workspace_id", ws); return c; })(),
-    (() => { let c = supabase.from("projects").select("id", head).eq("type", "original").eq("details->>origin", "existing"); if (ws === "mine") c = c.is("workspace_id", null).eq("owner_id", user!.id); else if (ws) c = c.eq("workspace_id", ws); return c; })(),
+    (() => { let c = supabase.from("projects").select("id", head).eq("type", "original").or(mine); if (ws === "mine") c = c.is("workspace_id", null).eq("owner_id", user!.id); else if (ws) c = c.eq("workspace_id", ws); return c; })(),
+    (() => { let c = supabase.from("projects").select("id", head).eq("type", "original").eq("details->>origin", "existing").or(mine); if (ws === "mine") c = c.is("workspace_id", null).eq("owner_id", user!.id); else if (ws) c = c.eq("workspace_id", ws); return c; })(),
   ]);
   const page = splitPage(data as unknown as Project[], limit);
   const list = page.items;

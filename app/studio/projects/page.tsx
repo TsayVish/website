@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ProjectRow } from "@/components/studio/ProjectCard";
 import { StartCards } from "@/components/studio/StartCards";
 import { IconPlus } from "@/components/studio/icons";
+import { myProjectsFilter } from "@/lib/mine";
 import { createClient } from "@/lib/supabase/server";
 import { PROJECT_COLUMNS, type Project } from "@/lib/types";
 
@@ -20,9 +21,10 @@ export default async function StudioHome({ searchParams }: { searchParams: Promi
     data: { user },
   } = await supabase.auth.getUser();
 
+  const mine = await myProjectsFilter(supabase, user!.id);
   const [{ data: profile }, { data: rows, error }] = await Promise.all([
     supabase.from("profiles").select("full_name, goal").eq("id", user!.id).maybeSingle(),
-    supabase.from("projects").select(PROJECT_COLUMNS).order("created_at", { ascending: false }),
+    supabase.from("projects").select(PROJECT_COLUMNS).or(mine).order("created_at", { ascending: false }),
   ]);
 
   const p = profile as { full_name: string | null; goal: string } | null;

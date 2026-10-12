@@ -13,6 +13,7 @@ import { POST_COLUMNS, fmtDate, type Post } from "@/lib/hub";
 import { MEMBER_COLUMNS, cleanQuery, type Member } from "@/lib/members";
 import { MoreLink } from "@/components/studio/MoreLink";
 import { moreHref, readLimit, splitPage } from "@/lib/paging";
+import { myProjectsFilter } from "@/lib/mine";
 import { createClient } from "@/lib/supabase/server";
 import { TOPICS } from "@/lib/topics";
 import { LISTING_COLUMNS, PROJECT_COLUMNS, type Listing, type Project } from "@/lib/types";
@@ -91,15 +92,16 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const take = (k: TypeKey, q: PromiseLike<{ data: unknown }>) =>
     want(k) ? q : Promise.resolve({ data: [] as unknown });
   const head = { count: "exact" as const, head: true };
+  const mine = await myProjectsFilter(supabase, user?.id ?? "");
   const [pRes, lRes, psRes, prRes, cP, cL, cPs, cPr] = await Promise.all([
     take("creators", supabase.rpc("search_profiles", { q }).select(MEMBER_COLUMNS).range(0, want("creators"))),
     take("listings", supabase.rpc("search_listings", { q }).select(LISTING_COLUMNS).range(0, want("listings"))),
     take("posts", supabase.rpc("search_posts", { q }).select(POST_COLUMNS).range(0, want("posts"))),
-    take("projects", supabase.from("projects").select(PROJECT_COLUMNS).ilike("name", like).order("created_at", { ascending: false }).range(0, want("projects"))),
+    take("projects", supabase.from("projects").select(PROJECT_COLUMNS).or(mine).ilike("name", like).order("created_at", { ascending: false }).range(0, want("projects"))),
     supabase.rpc("search_profiles", { q }, head),
     supabase.rpc("search_listings", { q }, head),
     supabase.rpc("search_posts", { q }, head),
-    supabase.from("projects").select("id", head).ilike("name", like),
+    supabase.from("projects").select("id", head).or(mine).ilike("name", like),
   ]);
   const m = splitPage(pRes.data as unknown as Member[], want("creators"));
   const l = splitPage(lRes.data as unknown as Listing[], want("listings"));

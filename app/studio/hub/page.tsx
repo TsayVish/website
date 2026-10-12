@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/studio/Avatar";
 import { IconCheck } from "@/components/studio/icons";
+import { myProjectsFilter } from "@/lib/mine";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HubDashboard() {
@@ -16,7 +17,7 @@ export default async function HubDashboard() {
     count(supabase.from("follows").select("creator_id", { count: "exact", head: true }).eq("creator_id", me)),
     count(supabase.from("posts").select("id", { count: "exact", head: true }).eq("owner_id", me).eq("status", "published")),
     count(supabase.from("listings").select("id", { count: "exact", head: true }).eq("owner_id", me).eq("status", "published")),
-    count(supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "original")),
+    count(supabase.from("projects").select("id", { count: "exact", head: true }).eq("type", "original").or(await myProjectsFilter(supabase, me))),
   ]);
   const p = profile as { full_name: string | null; avatar_url: string | null; bio: string | null } | null;
   const name = p?.full_name || "Your creator page";
