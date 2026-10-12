@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { OrgsPage } from "@/components/studio/orgs/pages";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Orgs" };
-
-export default async function Page() {
-  return OrgsPage({ base: "/studio/admin/orgs" });
+// Orgs moved to Settings → Orgs.
+export default function Page() {
+  redirect("/studio/orgs");
 }

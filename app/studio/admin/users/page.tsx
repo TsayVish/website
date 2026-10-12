@@ -87,10 +87,10 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
       {all.length <= 1 && !q && (
         <div className="st-empty">
           <b>Only you so far</b>
-          <p>Admins only see people in their orgs. <Link href="/studio/admin/orgs">Create an org</Link> and add people by email to manage them here.</p>
+          <p>Admins only see people in their orgs. <Link href="/studio/orgs">Create an org</Link> and add people by email to manage them here.</p>
         </div>
       )}
-      <p className="ai-hint">You only see members of <Link href="/studio/admin/orgs">your orgs</Link>. “Charged” members pay for AI Studio with credits. “Free” members don’t; what their jobs cost you still shows in Billing.</p>
+      <p className="ai-hint">You only see members of <Link href="/studio/orgs">your orgs</Link>. “Charged” members pay for AI Studio with credits. “Free” members don’t; what their jobs cost you still shows in Billing.</p>
     </div>
   );
 }

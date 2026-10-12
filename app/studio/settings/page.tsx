@@ -5,7 +5,7 @@ import { ProfileForm } from "@/components/studio/settings/ProfileForm";
 import { ThemeSwitch } from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Settings" };
+export const metadata: Metadata = { title: "Account" };
 
 type ProfileRow = {
   full_name: string | null; goal: "build" | "partner"; avatar_url: string | null;
@@ -30,7 +30,7 @@ export default async function SettingsPage() {
     <div className="st-stack st-settings">
       <div className="st-pagehead">
         <div>
-          <h1>Settings</h1>
+          <h1>Account</h1>
           <p className="st-sub">Your profile, sign-in details and preferences.</p>
         </div>
       </div>
