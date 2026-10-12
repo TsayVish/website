@@ -31,7 +31,7 @@ export async function withSocial(handler: (db: Db, uid: string) => Promise<unkno
 
 export type CreatePostBody = {
   projectId: string; mediaId: string; caption?: string; title?: string; accountIds: string[];
-  scheduledAt?: string | null; options?: PostOptions;
+  scheduledAt?: string | null; options?: PostOptions; contentId?: string | null;
 };
 
 /** Validates and saves a post. The file link is signed to outlive the scheduled time. */
@@ -69,7 +69,28 @@ export async function createPost(db: Db, body: CreatePostBody) {
     p_title: (body.title ?? "").slice(0, 100) || null, p_options: options, p_scheduled_at: when.toISOString(), p_accounts: accountIds,
   });
   if (error) throw new SocialError(error.message);
+  if (body.contentId && UUID.test(body.contentId)) {
+    const { error: linkErr } = await db.rpc("content_link_post", { p_item: body.contentId, p_post: id });
+    if (linkErr) console.error("[social] link content", linkErr.message);
+  }
   return { id: id as string, now: when.getTime() <= Date.now() + 5_000 };
+}
+
+/** Moves a scheduled post to a new time, with a fresh file link that outlives it. */
+export async function reschedulePost(db: Db, postId: string, scheduledAt: string) {
+  if (!UUID.test(postId)) throw new SocialError("Post not found.", { status: 404 });
+  const when = new Date(scheduledAt);
+  if (Number.isNaN(when.getTime())) throw new SocialError("That date isn’t valid.");
+  const { data: post } = await db.from("social_posts").select("id, media_id").eq("id", postId).maybeSingle();
+  if (!post?.media_id) throw new SocialError("Post not found.", { status: 404 });
+  const { data: media } = await db.from("studio_media").select("path").eq("id", post.media_id).maybeSingle();
+  if (!media) throw new SocialError("The file for this post was deleted.");
+  const seconds = Math.ceil((Math.max(when.getTime(), Date.now()) - Date.now()) / 1000) + 3 * 86400;
+  const { data: signed } = await db.storage.from("studio-media").createSignedUrl(media.path, seconds);
+  if (!signed?.signedUrl) throw new SocialError("Couldn’t prepare the file. Try again.", { status: 500 });
+  const { error } = await db.rpc("social_reschedule", { p_post: postId, p_when: when.toISOString(), p_media_url: signed.signedUrl });
+  if (error) throw new SocialError(error.message);
+  return { id: postId, scheduledAt: when.toISOString() };
 }
 
 /** Encrypted account details, only after checking the person may edit the character. */

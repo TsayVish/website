@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { NotificationBadge } from "./NotificationBadge";
 import { isSettingsPath } from "./settings/SettingsNav";
 import { UnreadBadge } from "./UnreadBadge";
-import { IconBell, IconChat, IconCompass, IconDashboard, IconGear, IconGrid, IconSearch, IconStore } from "./icons";
+import { IconBell, IconChat, IconCompass, IconDashboard, IconDoc, IconGear, IconGrid, IconSearch, IconStore } from "./icons";
 
 type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: "messages" | "notes" };
 
@@ -17,6 +17,7 @@ const MAIN: NavLink[] = [
   { href: "/studio/messages", label: "Messages", icon: <IconChat />, match: (p) => p.startsWith("/studio/messages"), badge: "messages" },
   { href: "/studio/notifications", label: "Notifications", icon: <IconBell />, match: (p) => p.startsWith("/studio/notifications"), badge: "notes" },
   { href: "/studio/projects", label: "Projects", icon: <IconGrid />, match: (p) => p.startsWith("/studio/projects") || p.startsWith("/studio/p/") },
+  { href: "/studio/content", label: "Content", icon: <IconDoc />, match: (p) => p.startsWith("/studio/content") },
   { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") || p.startsWith("/studio/deals") },
 ];
 

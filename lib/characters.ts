@@ -12,6 +12,12 @@ export const ASSET_COLUMNS = "id, project_id, added_by, kind, label, url, create
 
 /** Brand rules for a character. Stored in projects.style_guide. */
 export type StyleGuide = {
+  // Character bible
+  bio?: string;            // one or two lines
+  backstory?: string;
+  traits?: string;         // personality, quirks, likes and dislikes
+  world?: string;          // where they live, friends, recurring places
+  // Brand rules
   palette?: string[];      // hex colors
   voice?: string;          // how they talk
   catchphrases?: string[];
@@ -26,6 +32,10 @@ export function readStyleGuide(raw: unknown): StyleGuide {
   const g = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" ? v : undefined);
   return {
+    bio: str(g.bio),
+    backstory: str(g.backstory),
+    traits: str(g.traits),
+    world: str(g.world),
     palette: Array.isArray(g.palette) ? g.palette.filter((c): c is string => typeof c === "string" && HEX.test(c)).slice(0, 8) : [],
     voice: str(g.voice),
     catchphrases: Array.isArray(g.catchphrases) ? g.catchphrases.filter((c): c is string => typeof c === "string").slice(0, 12) : [],
@@ -36,7 +46,7 @@ export function readStyleGuide(raw: unknown): StyleGuide {
 }
 
 export const isStyleGuideEmpty = (g: StyleGuide) =>
-  !g.palette?.length && !g.voice && !g.catchphrases?.length && !g.dos && !g.donts && !g.usage;
+  !g.bio && !g.backstory && !g.traits && !g.world && !g.palette?.length && !g.voice && !g.catchphrases?.length && !g.dos && !g.donts && !g.usage;
 
 export type CharacterVersion = { id: string; snapshot: Record<string, unknown>; changed_by: string | null; created_at: string };
 

@@ -8,10 +8,47 @@ import {
   SCRIPT_COLUMNS, clock, isPending, newSceneId, readScenes,
   type Scene, type StudioGeneration, type StudioMedia, type StudioScript,
 } from "@/lib/studio/types";
+import { aiWrite, saveScript } from "@/lib/ai/client";
+import type { ScriptResult } from "@/lib/ai/tasks";
 
 const STARTER: Scene[] = [
   { id: newSceneId(), shot: "", line: "" },
 ];
+
+/** ✦ Write a whole episode script from a premise; it lands as a new script. */
+function AIScript({ projectId, onCreated, compact = false }: { projectId: string; onCreated: (s: StudioScript) => void; compact?: boolean }) {
+  const [open, setOpen] = useState(!compact);
+  const [premise, setPremise] = useState("");
+  const [scenes, setScenes] = useState(4);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) return <button type="button" className="linklike ai-script-ai-open" onClick={() => setOpen(true)}>✦ Write a new script with AI</button>;
+  async function go() {
+    setBusy(true); setError("");
+    try {
+      const { result } = await aiWrite<ScriptResult>("script", projectId, { premise, scenes });
+      onCreated(await saveScript(projectId, result));
+      setPremise("");
+      if (compact) setOpen(false);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    setBusy(false);
+  }
+  return (
+    <div className="ai-script-ai">
+      <label className="lbl" htmlFor={`ai-premise-${compact ? "c" : "f"}`}>✦ Write a script with AI</label>
+      <textarea id={`ai-premise-${compact ? "c" : "f"}`} className="st-input" rows={2} maxLength={2000} value={premise} onChange={(e) => setPremise(e.target.value)}
+        placeholder="Premise: it’s Monday and the coffee machine is broken…" />
+      <div className="ai-script-ai-go">
+        <select className="st-input st-small" value={scenes} onChange={(e) => setScenes(+e.target.value)} aria-label="Scenes">
+          {[3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} scenes</option>)}
+        </select>
+        <button type="button" className="btn st-small" disabled={busy || !premise.trim()} onClick={go}>{busy ? "Writing…" : "Write script"}</button>
+        {compact && <button type="button" className="linklike" onClick={() => setOpen(false)}>Cancel</button>}
+      </div>
+      {error && <p className="form-error" role="alert">{error}{/Settings → AI/.test(error) && <> <a href="/studio/settings/ai">Settings → AI</a></>}</p>}
+    </div>
+  );
+}
 
 export function ScriptEditor({
   projectId, canEdit, configured, scripts, script, onPick, onCreated, onDeleted, onEdit, onSaved,
@@ -157,6 +194,7 @@ export function ScriptEditor({
           </div>
         )}
         {canEdit && <button type="button" className="btn st-small" onClick={create}>New script</button>}
+        {canEdit && <AIScript projectId={projectId} onCreated={onCreated} />}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>
     );
@@ -174,6 +212,7 @@ export function ScriptEditor({
           {canEdit && <button type="button" className="btn ghost st-small" onClick={create}>New</button>}
         </div>
       </div>
+      {canEdit && <AIScript projectId={projectId} onCreated={onCreated} compact />}
 
       <div className="ai-script-title">
         <label htmlFor="ai-title" className="visually-hidden">Title</label>

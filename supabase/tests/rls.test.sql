@@ -501,4 +501,63 @@ select public.social_delete_post((select now_post from soc_post));
 do $$ begin assert (select count(*) from public.social_posts) = 1, 'deleted from the list'; end $$;
 commit;
 
+-- ── 13. Content manager and AI keys ──
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+select public.ai_save_key('anthropic', 'v1.enc-anthropic', '…abcd', 'claude-sonnet-5-5');
+select public.ai_save_key('openai', 'v1.enc-openai', '…wxyz', 'gpt-x');
+do $$ begin assert (select count(*) from public.ai_keys) = 2, 'own keys listed'; end $$;
+do $$ begin assert (select provider from public.ai_keys where is_default) = 'anthropic', 'first key is the default'; end $$;
+select pg_temp.expect_error($q$select key_enc from public.ai_keys$q$, 'permission denied');
+select public.ai_set_key_options('openai', 'gpt-y', true);
+do $$ begin assert (select provider from public.ai_keys where is_default) = 'openai' and (select model from public.ai_keys where provider = 'openai') = 'gpt-y', 'default switched'; end $$;
+-- own key: logged, not charged; tsayvish key: charged with markup
+create temp table bal0 on commit drop as select public.credit_balance() as b;
+do $$ begin assert public.ai_record_run('10000000-0000-0000-0000-000000000001', 'caption', 'openai', 'gpt-y', true, 100, 50, 0.4) = 0, 'own key is free'; end $$;
+do $$ begin assert public.ai_record_run('10000000-0000-0000-0000-000000000001', 'caption', 'anthropic', 'claude-sonnet-5-5', false, 1000, 500, 0.7) = 2, 'charged 1.5x, rounded up'; end $$;
+do $$ begin assert public.credit_balance() = (select b from bal0) - 2, 'credits charged'; end $$;
+do $$ begin assert (select count(*) from public.ai_runs) = 2, 'runs logged'; end $$;
+-- content items for a teammate's character
+insert into public.content_items (project_id, title, status, platforms, planned_at) values
+  ('10000000-0000-0000-0000-000000000001', 'Monday mood', 'idea', '{tiktok}', now() + interval '1 day');
+select pg_temp.expect_error($q$insert into public.content_items (project_id, title, platforms) values ('10000000-0000-0000-0000-000000000001', 'x', '{myspace}')$q$, 'check');
+select pg_temp.expect_error($q$insert into public.content_items (project_id, title, media_id) values ('10000000-0000-0000-0000-000000000001', 'x', gen_random_uuid())$q$, 'library');
+update public.content_items set status = 'draft', caption = 'Coffee first.' where title = 'Monday mood';
+do $$ begin assert (select status from public.content_items where title = 'Monday mood') = 'draft', 'editor can update'; end $$;
+select pg_temp.expect_error($q$update public.content_items set social_post_id = gen_random_uuid()$q$, 'permission denied');
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.content_items) = 0, 'strangers see no content'; end $$;
+do $$ begin assert (select count(*) from public.ai_keys) = 0 and (select count(*) from public.ai_runs) = 0, 'or keys and runs'; end $$;
+select pg_temp.expect_error($q$insert into public.content_items (project_id, title) values ('10000000-0000-0000-0000-000000000001', 'x')$q$, 'row-level security');
+select pg_temp.expect_error($q$select public.ai_record_run('10000000-0000-0000-0000-000000000001', 'caption', 'openai', 'm', true, 1, 1, 0)$q$, 'not found');
+commit;
+
+begin;
+set local role anon;
+do $$ begin assert (select key_enc from public.ai_key_secret((select s from billing_secret_out), '00000000-0000-0000-0000-00000000000b') limit 1) = 'v1.enc-openai', 'server reads the default key first'; end $$;
+select pg_temp.expect_error($q$select * from public.ai_key_secret('nope', '00000000-0000-0000-0000-00000000000b')$q$, 'not allowed');
+commit;
+
+-- linking to a Social post keeps the item in step
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true); set local role authenticated;
+create temp table soc2 on commit preserve rows as select public.social_save_account('10000000-0000-0000-0000-000000000001', 'instagram', 'ig2', 'IG', 'ig', null, 'v1.t', null, null) as ig;
+grant select on soc2 to anon, authenticated;
+create temp table post2 on commit preserve rows as select public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1',
+  'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=t', 'Coffee first.', null, '{}', now() + interval '3 days', array[(select ig from soc2)]) as id;
+grant select on post2 to anon, authenticated;
+select public.content_link_post((select id from public.content_items where title = 'Monday mood'), (select id from post2));
+do $$ begin assert (select status from public.content_items where title = 'Monday mood') = 'scheduled', 'scheduled with the post'; end $$;
+select public.social_reschedule((select id from post2), now() + interval '5 days', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=new');
+do $$ begin assert (select planned_at::date from public.content_items where title = 'Monday mood') = (now() + interval '5 days')::date, 'rescheduling moves the item'; end $$;
+select pg_temp.expect_error($q$select public.social_reschedule((select id from post2), now() + interval '90 days', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?t')$q$, '60 days');
+select public.social_cancel_post((select id from post2));
+do $$ begin assert (select status from public.content_items where title = 'Monday mood') = 'ready', 'canceled post sends it back to ready'; end $$;
+delete from public.content_items where title = 'Monday mood';
+do $$ begin assert (select count(*) from public.content_items) = 0, 'owner can delete'; end $$;
+commit;
+
 \echo 'All RLS tests passed'

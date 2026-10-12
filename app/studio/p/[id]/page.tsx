@@ -50,7 +50,7 @@ export default async function ProjectPage({
         { slug: "overview", label: "Overview" },
         { slug: "character", label: "Character" },
         { slug: "assets", label: "Assets" },
-        { slug: "style", label: "Style guide" },
+        { slug: "style", label: "Bible & style" },
         { slug: "history", label: "History" },
         { slug: "licenses", label: "Licenses" },
         ...SERVICE_DEFS.map((d) => ({ slug: d.slug, label: d.tab, status: statusOf(d.name) })),

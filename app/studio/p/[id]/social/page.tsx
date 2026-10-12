@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { SocialStudio } from "@/components/studio/social/SocialStudio";
+import { SocialStudio, type ContentDraft } from "@/components/studio/social/SocialStudio";
 import { PLATFORMS, type Platform } from "@/lib/social/platforms";
 import { platformReady, socialEnv } from "@/lib/social/secure";
 import {
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Social" };
 
 export default async function SocialPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ connected?: string; social_error?: string; media?: string }>;
+  searchParams: Promise<{ connected?: string; social_error?: string; media?: string; content?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -31,6 +31,9 @@ export default async function SocialPage({ params, searchParams }: {
       .order("created_at", { ascending: false }).limit(120),
   ]);
   const postRows = (posts.data ?? []) as SocialPost[];
+  const { data: fromContent } = sp.content && /^[0-9a-f-]{36}$/i.test(sp.content)
+    ? await supabase.from("content_items").select("id, title, caption, media_id, platforms, planned_at, social_post_id").eq("id", sp.content).eq("project_id", id).maybeSingle()
+    : { data: null };
   const { data: targets } = postRows.length
     ? await supabase.from("social_post_targets").select(TARGET_COLUMNS).in("post_id", postRows.map((p) => p.id))
     : { data: [] };
@@ -73,7 +76,8 @@ export default async function SocialPage({ params, searchParams }: {
         targets={(targets ?? []) as SocialTarget[]}
         library={library}
         flash={{ connected: sp.connected ?? null, error: sp.social_error ?? null }}
-        preselect={sp.media ?? null}
+        preselect={(fromContent?.media_id as string | null) ?? sp.media ?? null}
+        fromContent={fromContent && !fromContent.social_post_id ? fromContent as ContentDraft : null}
       />
     </div>
   );

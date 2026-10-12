@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { SocialError, socialEnv } from "@/lib/social/secure";
-import { withSocial } from "@/lib/social/server";
+import { reschedulePost, withSocial } from "@/lib/social/server";
 import { runPublisher } from "@/lib/social/worker";
 import { createPublicClient } from "@/lib/supabase/public";
 
@@ -25,5 +25,14 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
       db.from("social_post_targets").select("id, post_id, platform, account_name, status, external_url, error, posted_at").eq("post_id", id),
     ]);
     return { post: fresh, targets: targets ?? [] };
+  });
+}
+
+// Moves a scheduled post to a new time (from the content calendar).
+export async function PATCH(request: NextRequest, { params }: Ctx) {
+  const { id } = await params;
+  return withSocial(async (db) => {
+    const body = (await request.json().catch(() => ({}))) as { scheduledAt?: string };
+    return reschedulePost(db, id, String(body.scheduledAt ?? ""));
   });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -7,12 +8,15 @@ import {
   type Platform, type TikTokPrivacy, type YouTubePrivacy,
 } from "@/lib/social/platforms";
 import type { PostableMedia, SocialAccount, SocialPost, SocialTarget } from "@/lib/social/types";
+import { toLocalInput } from "@/lib/content-items";
 import { createClient } from "@/lib/supabase/client";
 
 type TikTokInfo = {
   nickname: string | null; username: string | null; privacyOptions: TikTokPrivacy[];
   commentDisabled: boolean; duetDisabled: boolean; stitchDisabled: boolean; maxSeconds: number | null;
 };
+
+export type ContentDraft = { id: string; title: string; caption: string; media_id: string | null; platforms: Platform[]; planned_at: string | null };
 
 const MARK: Record<Platform, string> = { instagram: "IG", facebook: "f", youtube: "▶", tiktok: "♪" };
 
@@ -33,7 +37,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function SocialStudio({
-  project, canEdit, ready, accounts, posts: initialPosts, targets: initialTargets, library, flash, preselect,
+  project, canEdit, ready, accounts, posts: initialPosts, targets: initialTargets, library, flash, preselect, fromContent = null,
 }: {
   project: { id: string; name: string };
   canEdit: boolean;
@@ -44,6 +48,7 @@ export function SocialStudio({
   library: PostableMedia[];
   flash: { connected: string | null; error: string | null };
   preselect: string | null;
+  fromContent?: ContentDraft | null;
 }) {
   const router = useRouter();
   const [posts, setPosts] = useState(initialPosts);
@@ -95,8 +100,13 @@ export function SocialStudio({
           ) : library.length === 0 ? (
             <div className="st-empty"><b>Nothing to post yet</b><p>Make or upload pictures and videos in the AI Studio, then come back to post them.</p></div>
           ) : (
-            <Composer projectId={project.id} accounts={usable} library={library} preselect={preselect}
-              onPosted={() => router.refresh()} />
+            <>
+              {fromContent && (
+                <p className="so-flash ok">Posting “{fromContent.title || "content item"}” from your Content board. When it’s scheduled, the item moves to Scheduled. <Link href="/studio/content">Back to Content</Link></p>
+              )}
+              <Composer projectId={project.id} accounts={usable} library={library} preselect={preselect} fromContent={fromContent}
+                onPosted={() => router.refresh()} />
+            </>
           )}
         </section>
       )}
@@ -190,14 +200,15 @@ function AccountCard({ platform, account, ready, canEdit, projectId, onChanged }
   );
 }
 
-function Composer({ projectId, accounts, library, preselect, onPosted }: {
-  projectId: string; accounts: SocialAccount[]; library: PostableMedia[]; preselect: string | null; onPosted: () => void;
+function Composer({ projectId, accounts, library, preselect, fromContent, onPosted }: {
+  projectId: string; accounts: SocialAccount[]; library: PostableMedia[]; preselect: string | null; fromContent: ContentDraft | null; onPosted: () => void;
 }) {
+  const [contentId, setContentId] = useState(fromContent?.id ?? null);
   const [mediaId, setMediaId] = useState(() => library.find((m) => m.id === preselect)?.id ?? library.find((m) => m.kind === "video")?.id ?? library[0]?.id ?? "");
   const [filter, setFilter] = useState<"all" | "video" | "image">("all");
-  const [caption, setCaption] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
-  const [title, setTitle] = useState("");
+  const [caption, setCaption] = useState(fromContent?.caption ?? "");
+  const [picked, setPicked] = useState<string[]>(() => accounts.filter((a) => fromContent?.platforms.includes(a.platform)).map((a) => a.id));
+  const [title, setTitle] = useState(fromContent?.title ?? "");
   const [ytPrivacy, setYtPrivacy] = useState<YouTubePrivacy>("public");
   const [kids, setKids] = useState(false);
   const [aiLabel, setAiLabel] = useState(true);
@@ -207,8 +218,11 @@ function Composer({ projectId, accounts, library, preselect, onPosted }: {
   const [ttAllow, setTtAllow] = useState({ comments: true, duet: true, stitch: true });
   const [brandOwn, setBrandOwn] = useState(false);
   const [brandPaid, setBrandPaid] = useState(false);
-  const [mode, setMode] = useState<"now" | "later">("now");
+  const futurePlan = fromContent?.planned_at && new Date(fromContent.planned_at).getTime() > Date.now() + 60_000 ? fromContent.planned_at : null;
+  const [mode, setMode] = useState<"now" | "later">(futurePlan ? "later" : "now");
   const [when, setWhen] = useState("");
+  // Local time only exists in the browser, so fill the planned time after the first render.
+  useEffect(() => { if (futurePlan) setWhen(toLocalInput(futurePlan)); }, [futurePlan]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -248,7 +262,7 @@ function Composer({ projectId, accounts, library, preselect, onPosted }: {
       await api("/api/social/posts", {
         method: "POST",
         body: JSON.stringify({
-          projectId, mediaId: media.id, caption, title, accountIds: chosen.map((a) => a.id),
+          projectId, mediaId: media.id, caption, title, accountIds: chosen.map((a) => a.id), contentId,
           scheduledAt: mode === "later" ? new Date(when).toISOString() : null,
           options: {
             aiGenerated: aiLabel,
@@ -258,6 +272,7 @@ function Composer({ projectId, accounts, library, preselect, onPosted }: {
         }),
       });
       setDone(mode === "later" ? "Scheduled." : "Posting now. Progress shows below.");
+      setContentId(null);
       setCaption("");
       setTitle("");
       setPicked([]);

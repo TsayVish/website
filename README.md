@@ -81,6 +81,34 @@ To switch on payments (start in Stripe **test mode**; no real charges):
 All three are server-only: never prefix them with `NEXT_PUBLIC_`, and never paste them anywhere else. To go live, repeat
 steps 3–4 with Stripe's live keys and a live-mode webhook.
 
+## Content manager and AI writing
+
+**Content** (sidebar) is one place for everything your characters will post, across all the characters you own or edit.
+- **Board:** items move Idea → Draft → Ready → Scheduled → Posted. Drag cards between columns.
+- **Calendar:** shows each item's planned time and every Social post. Drag items onto days to plan them. Moving a scheduled item also moves its Social post.
+- **Item editor:** title, notes, caption, platforms, a picture or video from the AI Studio library, and a linked episode script. **Schedule on Social** opens the Social composer filled in from the item; once it's scheduled or posted, the item follows the post's status.
+
+**Built-in AI tools (✦)**
+
+| Tool | Where it is |
+|---|---|
+| Captions and hashtags, per platform | Item editor |
+| Rewrite a caption (punchier, shorter, funnier) | Item editor |
+| Brainstorm ideas onto the board | Content → ✦ Ideas |
+| Plan posts: dated, timed drafts on the calendar | Content → ✦ Plan posts |
+| Episode scripts that drop into AI Studio → Episodes | Item editor, and AI Studio → Episodes |
+| Character bible | Character → Bible & style → ✦ Write with AI |
+
+Every tool writes from the character bible: bio, backstory, traits, world, voice, catchphrases, and do's and don'ts.
+
+**Whose AI account pays**
+- **Settings → AI:** people can add their own **Claude (Anthropic)** or **OpenAI API key**. The key is checked with the provider, encrypted with `SOCIAL_TOKEN_KEY`, and never sent back to the browser. They choose the model and which provider is the default.
+- **Subscriptions don't work here.** A Claude Pro/Max or ChatGPT Plus plan can't be used by other apps; API keys are billed separately by Anthropic or OpenAI.
+- **Without a key:** requests use tsayvish's own Claude key, set as `ANTHROPIC_API_KEY` in Vercel (server-only). They're paid from the person's AI Studio credits, at provider cost × the credit markup, minimum 1¢, and are free for billing-off members.
+  - `AI_FALLBACK_MODEL` changes the model; the default is `claude-sonnet-5-5`.
+  - If `ANTHROPIC_API_KEY` isn't set, the tools need the person's own key.
+- Every request is logged in `ai_runs`, and people see their recent use in Settings → AI.
+
 ## Social publishing (Instagram, Facebook, YouTube, TikTok)
 
 Each character has a **Social** page (character page → Social, or "Post to social" on any library item). Owners and editors connect that character's accounts, then post pictures and videos from the AI Studio library now or on a schedule. Every post shows per-platform status and links.
