@@ -2,10 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { deleteCharacter } from "@/lib/delete-character";
 
 /** Two-step delete: the first click asks, the second deletes. */
-export function DeleteProject({ projectId, label }: { projectId: string; label: string }) {
+export function DeleteProject({ projectId, label, name, compact = false, after = "/studio/hub/characters", message }: {
+  projectId: string;
+  message?: string;
+  label: string;
+  name?: string;
+  compact?: boolean;
+  /** Where to go afterwards; null stays on the page and refreshes it. */
+  after?: string | null;
+}) {
   const router = useRouter();
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -13,25 +21,31 @@ export function DeleteProject({ projectId, label }: { projectId: string; label: 
 
   async function remove() {
     setBusy(true);
-    const { error: err } = await createClient().from("projects").delete().eq("id", projectId);
-    if (err) {
-      setError(`Couldn’t delete: ${err.message}`);
+    setError("");
+    try {
+      await deleteCharacter(projectId);
+    } catch (e) {
+      setError(`Couldn’t delete: ${e instanceof Error ? e.message : String(e)}`);
       setBusy(false);
       return;
     }
-    router.push("/studio/projects");
+    if (after) router.push(after);
     router.refresh();
   }
 
+  if (compact && !asking) {
+    return <button type="button" className="btn ghost st-small st-del-btn" onClick={() => setAsking(true)}>{label}</button>;
+  }
+
   return (
-    <div className="st-danger">
+    <div className={compact ? "st-danger st-danger-inline" : "st-danger"}>
       {!asking ? (
         <button type="button" className="st-linkdanger" onClick={() => setAsking(true)}>{label}</button>
       ) : (
         <div className="st-confirm" role="group" aria-label="Confirm delete">
-          <span>This can’t be undone.</span>
+          <span>{message ?? (compact ? `Delete ${name ?? "this"} and everything made for it?` : "This deletes the character and everything made for it in the AI Studio. It can’t be undone.")}</span>
           <button type="button" className="btn st-small st-btn-danger" onClick={remove} disabled={busy}>
-            {busy ? "Deleting…" : "Yes, delete it"}
+            {busy ? "Deleting…" : "Yes, delete"}
           </button>
           <button type="button" className="btn ghost st-small" onClick={() => setAsking(false)} disabled={busy}>Keep it</button>
         </div>

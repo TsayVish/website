@@ -198,9 +198,17 @@ export default async function ProjectPage({
             <div className="panel st-next">
               <b className="st-panel-title">How services work</b>
               <p>Open a service to fill in the details and request it. When our team has it set up, it shows as <span className="st-status active">Active</span>.</p>
-              {canEdit && <DeleteProject projectId={project.id} label="Delete this project" />}
             </div>
           </div>
+          {isCreator && (
+            <div className="panel st-danger-panel">
+              <div>
+                <b className="st-panel-title">Delete {project.name}</b>
+                <p>Removes the character, its assets, scripts and everything made in its AI Studio. Listings that used it stay up until you delete them.</p>
+              </div>
+              <DeleteProject projectId={project.id} label="Delete character" name={project.name} compact />
+            </div>
+          )}
         </div>
       )}
 
@@ -326,7 +334,7 @@ export default async function ProjectPage({
             </dl>
             <b className="st-panel-title">Your message</b>
             <p className="st-message">{project.message || "No message added."}</p>
-            <DeleteProject projectId={project.id} label="Withdraw this request" />
+            <DeleteProject projectId={project.id} label="Withdraw this request" after="/studio/projects" message="Withdraw this partnership request? It can’t be undone." />
           </div>
         </div>
       )}

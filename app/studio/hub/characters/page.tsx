@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DeleteProject } from "@/components/studio/DeleteProject";
 import { ProjectArt, projectBackground } from "@/components/studio/ProjectArt";
 import { EmptyState } from "@/components/studio/hub/EmptyState";
 import { HubTabs } from "@/components/studio/hub/HubNav";
@@ -144,6 +145,7 @@ export default async function CharactersPage({ searchParams }: { searchParams: P
                   <Link className="btn ghost st-small" href={`/studio/p/${p.id}/ai`}>AI Studio</Link>
                   <Link className="btn ghost st-small" href={`/studio/p/${p.id}?tab=character`}>Edit</Link>
                   <Link className="btn ghost st-small" href={`/studio/p/${p.id}`}>Manage</Link>
+                  {p.owner_id === user!.id && <DeleteProject projectId={p.id} label="Delete" name={p.name} compact after={null} message="Delete for good?" />}
                 </span>
               </div>
             );

@@ -107,3 +107,22 @@ export async function downloadFile(url: string, name: string) {
 
 export const fileName = (m: StudioMedia) =>
   `${(m.label || m.kind).replace(/[^\w\- ]+/g, "").trim().slice(0, 60) || m.kind}.${m.path.split(".").pop()}`;
+
+/** Deletes a finished job and the files it made. */
+export async function deleteGeneration(id: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("studio_delete_generation", { p_id: id });
+  if (error) throw new Error(error.message);
+  const paths = ((data ?? []) as unknown[]).map((p) => (typeof p === "string" ? p : (p as Record<string, string>)?.studio_delete_generation)).filter(Boolean) as string[];
+  if (paths.length) await supabase.storage.from("studio-media").remove(paths);
+}
+
+/** Deletes several library files. Returns the ids that were removed. */
+export async function removeManyMedia(list: StudioMedia[]) {
+  const supabase = createClient();
+  const ids = list.map((m) => m.id);
+  const { error } = await supabase.from("studio_media").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+  await supabase.storage.from("studio-media").remove(list.map((m) => m.path));
+  return ids;
+}

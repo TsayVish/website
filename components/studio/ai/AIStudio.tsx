@@ -11,6 +11,7 @@ import {
 } from "@/lib/studio/types";
 import { MediaLibrary } from "./MediaLibrary";
 import { MediaViewer, type ViewerItem } from "./MediaViewer";
+import { deleteGeneration } from "./media-actions";
 import { ScriptEditor } from "./ScriptEditor";
 import { GeneratePanel, type Target } from "./GeneratePanel";
 import { GenerationFeed } from "./GenerationFeed";
@@ -280,7 +281,19 @@ export function AIStudio(props: StudioProps) {
             free={free}
             onStart={start}
           />
-          <GenerationFeed gens={gens} media={media} urls={urls} canEdit={canEdit} onCancel={cancel} onOpen={(m) => openMedia(m, media.filter((x) => x.source === "generated"))} />
+          <GenerationFeed gens={gens} media={media} urls={urls} canEdit={canEdit} onCancel={cancel}
+            onOpen={(m) => openMedia(m, media.filter((x) => x.source === "generated"))}
+            onDelete={async (g) => {
+              try {
+                await deleteGeneration(g.id);
+                setGens((all) => all.filter((x) => x.id !== g.id));
+                setMedia((all) => all.filter((x) => x.generation_id !== g.id));
+                setSelected((sel) => sel.filter((k) => !k.startsWith("media:") || mediaById.get(k.slice(6))?.generation_id !== g.id));
+                setNotice("Deleted.");
+              } catch (e) {
+                setNotice(`Couldn’t delete: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            }} />
         </div>
       )}
 
@@ -292,6 +305,7 @@ export function AIStudio(props: StudioProps) {
           characterImages={characterImages}
           urls={urls}
           onUploaded={(rows) => setMedia((m) => [...rows, ...m])}
+          onRemoved={(ids) => { setMedia((all) => all.filter((x) => !ids.includes(x.id))); setSelected((sel) => sel.filter((k) => !ids.includes(k.slice(6)))); setNotice(ids.length > 1 ? `Deleted ${ids.length} files.` : "Deleted."); }}
           onOpen={openMedia}
           onOpenCharacter={openCharacter}
         />
@@ -347,6 +361,15 @@ export function AIStudio(props: StudioProps) {
           onAnimate={animate}
           onEdit={aiEdit}
           onNotice={setNotice}
+          onAssetRemoved={(key) => {
+            setCharacterImages((all) => all.filter((c) => c.key !== key));
+            setSelected((sel) => sel.filter((k) => k !== key));
+            setViewer((v) => {
+              if (!v) return v;
+              const items = v.items.filter((it) => !(it.type === "character" && it.c.key === key));
+              return items.length ? { items, index: Math.min(v.index, items.length - 1) } : null;
+            });
+          }}
           onSavedAsset={(a) => setCharacterImages((all) => [...all, { key: `asset:${a.id}`, url: a.url, label: a.label || "Asset" }])}
           onCharacterPicture={(url) => setCharacterImages((all) => [{ key: `character:${project.id}`, url, label: "Character picture" }, ...all.filter((c) => !c.key.startsWith("character:"))])}
         />

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { money, priceFor } from "@/lib/billing";
 import { modelById } from "@/lib/studio/catalog";
 import { clock, type CharacterImage, type StudioGeneration, type StudioMedia } from "@/lib/studio/types";
+import { createClient } from "@/lib/supabase/client";
 import { copyToAssets, downloadFile, fileName, makeCharacterPicture, removeMedia, renameMedia, saveDuration } from "./media-actions";
 
 export type ViewerItem = { type: "media"; m: StudioMedia } | { type: "character"; c: CharacterImage };
@@ -15,7 +16,7 @@ const fmtSize = (b: number | null) => (b == null ? "" : b > 1e6 ? `${(b / 1e6).t
 /** Full-size view of one library item, with everything you can do to it. */
 export function MediaViewer({
   item, projectId, url, gen, canEdit, configured, free, markup, onClose, onPrev, onNext,
-  onRenamed, onRemoved, onUseAsReference, onAnimate, onEdit, onNotice, onCharacterPicture, onSavedAsset,
+  onRenamed, onRemoved, onUseAsReference, onAnimate, onEdit, onNotice, onCharacterPicture, onSavedAsset, onAssetRemoved,
 }: {
   item: ViewerItem;
   projectId: string;
@@ -36,6 +37,7 @@ export function MediaViewer({
   onNotice: (text: string) => void;
   onCharacterPicture: (url: string) => void;
   onSavedAsset: (a: { id: string; url: string; label: string | null }) => void;
+  onAssetRemoved: (key: string) => void;
 }) {
   const m = item.type === "media" ? item.m : null;
   const key = m ? `media:${m.id}` : item.type === "character" ? item.c.key : "";
@@ -151,6 +153,16 @@ export function MediaViewer({
 
           {error && <p className="form-error" role="alert">{error}</p>}
 
+          {!m && canEdit && key.startsWith("asset:") && (
+            <button type="button" className="linklike ai-danger as-delete" disabled={!!busy}
+              onClick={() => { if (window.confirm(`Remove “${label || "this picture"}” from the character’s Assets?`)) run("delete", async () => {
+                const { error: err } = await createClient().from("character_assets").delete().eq("id", key.slice(6));
+                if (err) throw new Error(err.message);
+                onAssetRemoved(key);
+              }, "Removed from Assets."); }}>
+              Remove from Assets
+            </button>
+          )}
           {m && canEdit && (
             <button type="button" className="linklike ai-danger as-delete" disabled={!!busy}
               onClick={() => { if (window.confirm(`Delete “${m.label || "this file"}”? This can’t be undone.`)) run("delete", async () => { await removeMedia(m); onRemoved(m.id); }, "Deleted."); }}>

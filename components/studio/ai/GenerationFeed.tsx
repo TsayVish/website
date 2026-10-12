@@ -10,7 +10,7 @@ const PAGE = 18;
 
 /** Results as a gallery, newest first. Click a result to open it. */
 export function GenerationFeed({
-  gens, media, urls, canEdit, onCancel, onOpen,
+  gens, media, urls, canEdit, onCancel, onOpen, onDelete,
 }: {
   gens: StudioGeneration[];
   media: StudioMedia[];
@@ -18,6 +18,7 @@ export function GenerationFeed({
   canEdit: boolean;
   onCancel: (id: string) => void;
   onOpen: (m: StudioMedia) => void;
+  onDelete: (g: StudioGeneration) => void;
 }) {
   const [shown, setShown] = useState(PAGE);
   const list = gens.filter((g) => g.tool !== "assemble" || g.status !== "canceled");
@@ -73,8 +74,16 @@ export function GenerationFeed({
                 )}
               </div>
               <div className="as-result-cap">
-                <p title={title}>{title}</p>
-                <small>{meta}</small>
+                <div>
+                  <p title={title}>{title}</p>
+                  <small>{meta}</small>
+                </div>
+                {canEdit && !isPending(g.status) && (
+                  <button type="button" className="as-trash" aria-label={`Delete ${title}`} title="Delete"
+                    onClick={() => { if (window.confirm(outs.length ? `Delete this result and its ${outs.length > 1 ? `${outs.length} files` : "file"}? This can’t be undone.` : "Remove this from your results?")) onDelete(g); }}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></svg>
+                  </button>
+                )}
               </div>
             </li>
           );

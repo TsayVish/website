@@ -3,7 +3,7 @@
 import { useState, type ChangeEvent, type DragEvent } from "react";
 import type { MediaKind } from "@/lib/studio/catalog";
 import { clock, type CharacterImage, type StudioMedia } from "@/lib/studio/types";
-import { uploadMedia } from "./media-actions";
+import { downloadFile, fileName, removeManyMedia, uploadMedia } from "./media-actions";
 
 export type { CharacterImage };
 
@@ -12,7 +12,7 @@ type SourceFilter = "all" | "generated" | "upload";
 
 /** Everything for this character, as a gallery. Click to open. */
 export function MediaLibrary({
-  projectId, canEdit, media, characterImages, urls, onUploaded, onOpen, onOpenCharacter,
+  projectId, canEdit, media, characterImages, urls, onUploaded, onRemoved, onOpen, onOpenCharacter,
 }: {
   projectId: string;
   canEdit: boolean;
@@ -20,6 +20,7 @@ export function MediaLibrary({
   characterImages: CharacterImage[];
   urls: Record<string, string>;
   onUploaded: (rows: StudioMedia[]) => void;
+  onRemoved: (ids: string[]) => void;
   onOpen: (m: StudioMedia, list: StudioMedia[]) => void;
   onOpenCharacter: (c: CharacterImage) => void;
 }) {
@@ -29,6 +30,27 @@ export function MediaLibrary({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const togglePick = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const pickedMedia = media.filter((m) => picked.includes(m.id));
+
+  async function deletePicked() {
+    if (!pickedMedia.length || !window.confirm(`Delete ${pickedMedia.length} file${pickedMedia.length > 1 ? "s" : ""}? This can’t be undone.`)) return;
+    setBusy("Deleting…");
+    setError("");
+    try {
+      onRemoved(await removeManyMedia(pickedMedia));
+      setPicked([]);
+      setSelecting(false);
+    } catch (e) {
+      setError(`Couldn’t delete: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    setBusy("");
+  }
+  async function downloadPicked() {
+    for (const m of pickedMedia) if (urls[m.path]) await downloadFile(urls[m.path], fileName(m));
+  }
 
   async function upload(files: File[]) {
     if (!files.length) return;
@@ -76,6 +98,11 @@ export function MediaLibrary({
           </select>
         </label>
         <input className="st-input hub-search as-lib-search" type="search" placeholder="Search by name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the library" />
+        {media.length > 0 && (
+          <button type="button" className={`btn ghost st-small${canEdit ? "" : " as-upload"}`} onClick={() => { setSelecting((s) => !s); setPicked([]); }}>
+            {selecting ? "Done" : "Select"}
+          </button>
+        )}
         {canEdit && (
           <>
             <label className="btn st-small as-upload" htmlFor="ai-files">{busy || "Upload"}</label>
@@ -85,6 +112,17 @@ export function MediaLibrary({
         )}
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
+      {selecting && (
+        <div className="as-selbar" role="toolbar" aria-label="Selected files">
+          <span><b>{picked.length}</b> selected</span>
+          <button type="button" className="linklike" onClick={() => setPicked(picked.length === shown.length ? [] : shown.map((m) => m.id))}>
+            {picked.length === shown.length && shown.length ? "Clear" : "Select all"}
+          </button>
+          <span className="as-selbar-gap" />
+          <button type="button" className="btn ghost st-small" disabled={!picked.length} onClick={downloadPicked}>Download</button>
+          {canEdit && <button type="button" className="btn st-small st-btn-danger" disabled={!picked.length || !!busy} onClick={deletePicked}>{busy === "Deleting…" ? busy : "Delete"}</button>}
+        </div>
+      )}
 
       {characterImages.length > 0 && kind !== "audio" && kind !== "video" && source !== "generated" && !words && (
         <section className="as-lib-sec">
@@ -116,7 +154,8 @@ export function MediaLibrary({
               const url = urls[m.path];
               return (
                 <li key={m.id}>
-                  <button type="button" className={`as-tile as-${m.kind}`} onClick={() => onOpen(m, shown)} title={m.label ?? ""}>
+                  <button type="button" className={`as-tile as-${m.kind}`} onClick={() => (selecting ? togglePick(m.id) : onOpen(m, shown))} title={m.label ?? ""}
+                    aria-pressed={selecting ? picked.includes(m.id) : undefined} data-selecting={selecting || undefined}>
                     {!url ? <span className="as-shimmer" /> : m.kind === "image" ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={url} alt="" loading="lazy" />
@@ -128,6 +167,7 @@ export function MediaLibrary({
                     {m.source === "generated" && <span className="as-badge">AI</span>}
                     {m.kind !== "image" && m.duration_ms ? <span className="as-len">{clock(m.duration_ms)}</span> : null}
                     {m.kind === "video" && <span className="as-play" aria-hidden="true">▶</span>}
+                    {selecting && <span className="as-tick" aria-hidden="true">{picked.includes(m.id) ? "✓" : ""}</span>}
                   </button>
                   <span className="as-tile-name">{m.label || "Untitled"}</span>
                 </li>

@@ -317,4 +317,17 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b
 select pg_temp.expect_error($q$select public.studio_start_generation('10000000-0000-0000-0000-000000000001', 'video', 'm', 'p', '{}', '[]', 3000)$q$, 'not enough credits');
 commit;
 
+-- Deleting a finished job removes its files from the library
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.studio_delete_generation((select id from public.studio_generations where status = 'succeeded' limit 1))$q$, 'not found');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+create temp table del_paths as select public.studio_delete_generation((select id from public.studio_generations where status = 'succeeded' limit 1)) as p;
+do $$ begin assert (select count(*) from del_paths) = 1 and (select p from del_paths) like '10000000-0000-0000-0000-000000000001/%', 'returns the file paths'; end $$;
+do $$ begin assert (select count(*) from public.studio_media where source = 'generated') = 0, 'outputs removed'; end $$;
+do $$ begin assert (select count(*) from public.credit_ledger where kind = 'charge') >= 1, 'credit history kept'; end $$;
+commit;
+
 \echo 'All RLS tests passed'
