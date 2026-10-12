@@ -81,6 +81,17 @@ To switch on payments (start in Stripe **test mode**; no real charges):
 All three are server-only: never prefix them with `NEXT_PUBLIC_`, and never paste them anywhere else. To go live, repeat
 steps 3–4 with Stripe's live keys and a live-mode webhook.
 
+## Orgs and who can see what
+
+Nobody, admins included, can see everyone on the platform. Admins only see and act on people who **share an org** with them: their characters, AI Studio jobs, credits, service requests, reports and the audit log. Everyone else is invisible to them, and the admin tools (ban, credits, billing switch, spend cap) refuse anyone outside their orgs.
+
+- **Admin → Orgs** creates an org (admins only; you become its owner). Add people by email; anyone without an account gets an invite and joins automatically when they sign up with that email.
+- Owners, and admins who are in the org, can add and remove people and change roles. An org always keeps at least one owner.
+- Plain members see their org and its people (names, not emails) under **Orgs** in the sidebar, but still can’t open each other’s private characters; share those with a workspace as before.
+- The public side is unchanged: Discover, Search, Marketplace and public creator pages still show discoverable people and published work to everyone.
+
+A new admin with no org sees only themselves until they create one.
+
 ## Database changes (migrations)
 
 Every change to the database lives in `supabase/migrations/`, one timestamped file per change, applied in name order.

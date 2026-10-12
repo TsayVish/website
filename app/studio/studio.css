@@ -1724,3 +1724,37 @@ input.as-name:focus{outline:none; border-color:var(--accent)}
 .as-tile[aria-pressed="true"] img, .as-tile[aria-pressed="true"] video{transform:scale(.94)}
 .as-tick{position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:.75rem; font-weight:700; border:2px solid #fff; background:color-mix(in srgb, #000 30%, transparent); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .as-tile[aria-pressed="true"] .as-tick{background:var(--accent); border-color:var(--accent)}
+
+/* ── Orgs ── */
+.org-create{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.org-create .st-input{flex:1 1 260px; max-width:420px}
+.org-create .form-error{flex-basis:100%}
+.org-row{grid-template-columns:minmax(0,2fr) 120px 110px 110px}
+.org-name{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.org-back{font-size:.84rem; color:var(--muted); text-decoration:none; width:max-content}
+.org-back:hover{color:var(--ink)}
+.org-rename{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.org-rename .st-input{font-size:1.2rem; font-weight:650; max-width:360px}
+.org-add{display:grid; gap:12px}
+.org-add-row{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end}
+.org-add-row .adm-grow{flex:1 1 280px}
+.org-add-row .field{display:grid; gap:6px; margin:0}
+.org-mrow{grid-template-columns:minmax(0,1fr) 140px 130px}
+.org-who{display:flex; align-items:center; gap:10px; min-width:0}
+.org-who > span:last-child{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0}
+.org-who a{color:var(--ink); text-decoration:none}
+.org-who a:hover{text-decoration:underline}
+.org-who small{flex-basis:100%; color:var(--muted); font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.org-who .st-status{margin-left:0}
+.org-role select{width:100%; padding-block:6px}
+.org-act{display:flex; justify-content:flex-end}
+.org-h2{font-size:1rem; margin:0}
+.org-invites{gap:10px}
+@media (max-width:700px){
+  .org-row{grid-template-columns:minmax(0,1fr) auto}
+  .org-row > .st-cell:nth-child(3), .org-row > .st-date{display:none}
+  .org-mrow{grid-template-columns:minmax(0,1fr) auto; gap:8px 10px}
+  .org-mrow .org-act{grid-column:1 / -1; justify-content:flex-start; padding-left:40px}
+  .org-mrow .org-act:empty{display:none}
+  .org-mrow .org-role{width:110px}
+}

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { NotificationBadge } from "./NotificationBadge";
 import { UnreadBadge } from "./UnreadBadge";
-import { IconBell, IconChat, IconCoin, IconShield, IconCompass, IconDashboard, IconGear, IconGrid, IconHandshake, IconSearch, IconSpark, IconStore } from "./icons";
+import { IconBell, IconChat, IconCoin, IconShield, IconCompass, IconDashboard, IconGear, IconGrid, IconPeople, IconHandshake, IconSearch, IconSpark, IconStore } from "./icons";
 
 type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: "messages" | "notes" };
 
@@ -45,7 +45,7 @@ export function StudioNav({ me, unread, notes = 0 }: { me: string; unread: numbe
 }
 
 /** Settings link for the bottom of the sidebar. */
-export function SettingsLink({ staff = false, credits = null, freeAi = false }: { staff?: boolean; credits?: number | null; freeAi?: boolean }) {
+export function SettingsLink({ staff = false, credits = null, freeAi = false, inOrg = false }: { staff?: boolean; credits?: number | null; freeAi?: boolean; inOrg?: boolean }) {
   const path = usePathname() ?? "";
   return (
     <nav className="st-nav st-nav-bottom" aria-label="Account">
@@ -53,6 +53,12 @@ export function SettingsLink({ staff = false, credits = null, freeAi = false }: 
         <Link href="/studio/admin" aria-current={path.startsWith("/studio/admin") ? "page" : undefined}>
           <IconShield />
           Admin
+        </Link>
+      )}
+      {!staff && inOrg && (
+        <Link href="/studio/orgs" aria-current={path.startsWith("/studio/orgs") ? "page" : undefined}>
+          <IconPeople />
+          <span className="st-nav-text">Orgs</span>
         </Link>
       )}
       <Link href="/studio/credits" aria-current={path.startsWith("/studio/credits") ? "page" : undefined}>

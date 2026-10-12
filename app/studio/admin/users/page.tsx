@@ -54,7 +54,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
       <div className="st-pagehead">
         <div>
           <h1>Members</h1>
-          <p className="st-sub">Find anyone by name or email. Switch AI Studio billing off for people who shouldn’t pay, add credits, set spend caps or ban accounts.</p>
+          <p className="st-sub">Everyone who shares an org with you. Switch AI Studio billing off for people who shouldn’t pay, add credits, set spend caps or ban accounts.</p>
         </div>
       </div>
 
@@ -84,7 +84,13 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         {members.map((m) => <MemberRow key={m.id} m={m} isMe={m.id === user?.id} />)}
         {members.length === 0 && <div className="st-row"><span className="st-cell">No members match.</span></div>}
       </div>
-      <p className="ai-hint">“Charged” members pay for AI Studio with credits. “Free” members don’t; what their jobs cost you still shows in Billing.</p>
+      {all.length <= 1 && !q && (
+        <div className="st-empty">
+          <b>Only you so far</b>
+          <p>Admins only see people in their orgs. <Link href="/studio/admin/orgs">Create an org</Link> and add people by email to manage them here.</p>
+        </div>
+      )}
+      <p className="ai-hint">You only see members of <Link href="/studio/admin/orgs">your orgs</Link>. “Charged” members pay for AI Studio with credits. “Free” members don’t; what their jobs cost you still shows in Billing.</p>
     </div>
   );
 }

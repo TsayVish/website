@@ -30,6 +30,19 @@ insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at) value
   ('00000000-0000-0000-0000-00000000000d', 'd@test.dev', '{"full_name":"Dee D"}', null);
 insert into public.staff (user_id, role) values ('00000000-0000-0000-0000-00000000005a', 'admin');
 
+-- Staff only see people who share an org with them, so S puts everyone in one org.
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+create temp table test_org on commit drop as select public.create_org('Test studio') as id;
+grant select on test_org to authenticated;
+do $$ declare o uuid := (select id from test_org); begin
+  assert public.org_add_member(o, 'A@test.dev') = 'added', 'adds by email, any case';
+  perform public.org_add_member(o, 'b@test.dev');
+  perform public.org_add_member(o, 'c@test.dev');
+  perform public.org_add_member(o, 'd@test.dev');
+end $$;
+commit;
+
 -- ── 1. Projects are private to their owner ──
 begin;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true); set local role authenticated;
@@ -151,7 +164,7 @@ do $$ begin assert (select count(*) from public.projects) >= 1, 'staff see all p
 select public.admin_update_service('10000000-0000-0000-0000-000000000001', 'Trademark filing', 'active', '00000000-0000-0000-0000-00000000005a', current_date + 7, 'Filed with USPTO');
 select public.admin_post_service_update('10000000-0000-0000-0000-000000000001', 'Trademark filing', 'We filed in class 28.');
 select public.admin_ban('00000000-0000-0000-0000-00000000000c', 'Spam');
-do $$ begin assert (select count(*) from public.admin_actions) = 3, 'three actions logged'; end $$;
+do $$ begin assert (select count(*) from public.admin_actions where target_type <> 'org') = 3, 'three actions logged'; end $$;
 commit;
 
 begin;
@@ -328,6 +341,88 @@ create temp table del_paths as select public.studio_delete_generation((select id
 do $$ begin assert (select count(*) from del_paths) = 1 and (select p from del_paths) like '10000000-0000-0000-0000-000000000001/%', 'returns the file paths'; end $$;
 do $$ begin assert (select count(*) from public.studio_media where source = 'generated') = 0, 'outputs removed'; end $$;
 do $$ begin assert (select count(*) from public.credit_ledger where kind = 'charge') >= 1, 'credit history kept'; end $$;
+commit;
+
+-- ── 11. Orgs: staff see only their orgs ──
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-00000000000e', 'e@test.dev', '{"full_name":"Eve Outsider"}'),
+  ('00000000-0000-0000-0000-00000000005b', 't@test.dev', '{"full_name":"Tia Staff"}');
+insert into public.staff (user_id, role) values ('00000000-0000-0000-0000-00000000005b', 'admin');
+insert into public.projects (id, owner_id, type, name, kind, color, personality) values ('10000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-00000000000e', 'original', 'Eve secret', 'Animal', 'Mint', 'Chill');
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+do $$ begin assert not exists (select 1 from public.projects where owner_id = '00000000-0000-0000-0000-00000000000e'), 'staff cannot see an outsider''s characters'; end $$;
+do $$ begin assert exists (select 1 from public.projects where owner_id = '00000000-0000-0000-0000-00000000000a'), 'staff see org members'' characters'; end $$;
+do $$ begin assert not exists (select 1 from public.admin_find_users('e@test')), 'outsider not searchable'; end $$;
+do $$ begin assert exists (select 1 from public.admin_find_users('a@test')), 'org member searchable'; end $$;
+do $$ begin assert not exists (select 1 from public.staff where user_id = '00000000-0000-0000-0000-00000000005b'), 'other admins are hidden'; end $$;
+select pg_temp.expect_error($q$select public.admin_ban('00000000-0000-0000-0000-00000000000e', 'x')$q$, 'isn’t in any of your orgs');
+select pg_temp.expect_error($q$select public.admin_adjust_credits('00000000-0000-0000-0000-00000000000e', 500, 'gift')$q$, 'isn’t in any of your orgs');
+select pg_temp.expect_error($q$select public.admin_set_billing_exempt('00000000-0000-0000-0000-00000000000e', true)$q$, 'isn’t in any of your orgs');
+do $$ begin assert public.credit_balance('00000000-0000-0000-0000-00000000000e') = 0, 'outsider balance hidden'; end $$;
+commit;
+
+-- the other admin sees none of S's org
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005b', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.projects) = 0, 'a new admin sees nobody''s characters'; end $$;
+do $$ begin assert (select count(*) from public.admin_actions) = 0, 'and none of the audit log'; end $$;
+do $$ begin assert (select count(*) from public.orgs) = 0, 'or the org'; end $$;
+do $$ begin assert not exists (select 1 from public.admin_find_users('a@test')), 'or its members'; end $$;
+select pg_temp.expect_error($q$select public.admin_ban('00000000-0000-0000-0000-00000000000a', 'x')$q$, 'isn’t in any of your orgs');
+select pg_temp.expect_error($q$select public.org_add_member((select id from public.orgs limit 1), 'x@test.dev')$q$, 'only the org');
+commit;
+
+-- members can't create orgs; org mates see each other; owners manage; invites wait for sign-up
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.create_org('Mine')$q$, 'only admins');
+do $$ begin assert (select count(*) from public.orgs) = 1, 'member sees their org'; end $$;
+do $$ begin assert exists (select 1 from public.profiles where id = '00000000-0000-0000-0000-00000000000a'), 'org mates read each other''s profile'; end $$;
+do $$ begin assert (select count(*) from public.org_member_list((select id from public.orgs limit 1)) where email is not null) = 1, 'members only see their own email'; end $$;
+select pg_temp.expect_error($q$select public.org_add_member((select id from public.orgs limit 1), 'x@test.dev')$q$, 'only the org');
+do $$ begin assert not exists (select 1 from public.projects where id = '10000000-0000-0000-0000-000000000001'), 'org mates still can''t open each other''s characters'; end $$;
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+select public.org_set_role((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000000a', 'owner');
+do $$ begin assert public.org_add_member((select id from public.orgs limit 1), 'new@test.dev') = 'invited', 'unknown emails get an invite'; end $$;
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.org_invites) = 1, 'owners see pending invites'; end $$;
+do $$ begin assert (select count(*) from public.org_member_list((select id from public.orgs limit 1)) where email is not null) = 5, 'owners see emails'; end $$;
+select public.org_remove_member((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000000d');
+select public.org_set_role((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000005a', 'member');
+select pg_temp.expect_error($q$select public.org_remove_member((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000000a')$q$, 'at least one owner');
+select pg_temp.expect_error($q$select public.org_set_role((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000000a', 'member')$q$, 'at least one owner');
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000005a', true); set local role authenticated;
+do $$ begin assert not exists (select 1 from public.projects where owner_id = '00000000-0000-0000-0000-00000000000d'), 'removed members drop out of view'; end $$;
+select pg_temp.expect_error($q$select public.admin_ban('00000000-0000-0000-0000-00000000000d', 'x')$q$, 'isn’t in any of your orgs');
+-- staff who are plain members can still manage the org
+select public.org_set_role((select id from public.orgs limit 1), '00000000-0000-0000-0000-00000000005a', 'owner');
+commit;
+
+-- an invited person joins when they sign up and confirm
+insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-00000000000f', 'New@test.dev', '{"full_name":"Neo New"}');
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000f', true); set local role authenticated;
+do $$ begin assert public.claim_org_invites() = 1, 'invite claimed'; end $$;
+do $$ begin assert public.claim_org_invites() = 0, 'only once'; end $$;
+do $$ begin assert (select count(*) from public.orgs) = 1, 'now in the org'; end $$;
+commit;
+
+-- the outsider can't see the org or its people
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000e', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.orgs) = 0 and (select count(*) from public.org_members) = 0, 'orgs are private'; end $$;
+select pg_temp.expect_error($q$select * from public.org_member_list((select org_id from public.org_members limit 1))$q$, 'not found');
 commit;
 
 \echo 'All RLS tests passed'

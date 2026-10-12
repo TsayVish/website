@@ -21,7 +21,7 @@ export default async function StudioLayout({ children }: { children: React.React
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?mode=login");
 
-  const [{ data: profile }, { data: unread }, { data: notes }, { data: staff }, { data: banned }, { data: credits }, { data: freeAi }] = await Promise.all([
+  const [{ data: profile }, { data: unread }, { data: notes }, { data: staff }, { data: banned }, { data: credits }, { data: freeAi }, { count: orgCount }] = await Promise.all([
     supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle(),
     supabase.rpc("unread_message_count"),
     supabase.rpc("unread_notification_count"),
@@ -29,6 +29,9 @@ export default async function StudioLayout({ children }: { children: React.React
     supabase.rpc("is_banned"),
     supabase.rpc("credit_balance"),
     supabase.rpc("is_billing_exempt"),
+    supabase.from("org_members").select("org_id", { count: "exact", head: true }).eq("user_id", user.id),
+    // Joins any orgs this person was invited to by email before they had an account.
+    user.email_confirmed_at ? supabase.rpc("claim_org_invites") : Promise.resolve(null),
   ]);
   const unverified = !user.email_confirmed_at;
   const p = profile as { full_name: string | null; avatar_url: string | null } | null;
@@ -41,7 +44,7 @@ export default async function StudioLayout({ children }: { children: React.React
         <SidebarFrame logo={<Logo />}>
           <StudioNav me={user.id} unread={typeof unread === "number" ? unread : 0} notes={typeof notes === "number" ? notes : 0} />
           <div className="st-user">
-            <SettingsLink staff={staff === true} credits={typeof credits === "number" ? credits : null} freeAi={freeAi === true} />
+            <SettingsLink staff={staff === true} credits={typeof credits === "number" ? credits : null} freeAi={freeAi === true} inOrg={(orgCount ?? 0) > 0} />
             <Link href="/studio/settings" className="st-me">
               <Avatar url={p?.avatar_url} name={name || user.email || "?"} size={32} />
               <span className="st-me-text">
