@@ -81,6 +81,60 @@ To switch on payments (start in Stripe **test mode**; no real charges):
 All three are server-only: never prefix them with `NEXT_PUBLIC_`, and never paste them anywhere else. To go live, repeat
 steps 3–4 with Stripe's live keys and a live-mode webhook.
 
+## Social publishing (Instagram, Facebook, YouTube, TikTok)
+
+Each character has a **Social** page (character page → Social, or "Post to social" on any library item). Owners and editors connect that character's accounts, then post pictures and videos from the AI Studio library now or on a schedule. Every post shows per-platform status and links.
+
+**How it's built**
+- Each platform is connected with its own sign-in (OAuth). Access tokens are encrypted with `SOCIAL_TOKEN_KEY` before they're saved, and the database never lets the browser read them.
+- The publisher (`/api/social/run`) sends due posts. It reads tokens through database functions that need the server secret (`BILLING_DB_SECRET`, the same one as payments). It refreshes tokens before they expire and retries temporary errors. If a platform signs someone out, the account is marked **Reconnect**.
+- Instagram and TikTok process videos in the background, so a post can take a few minutes to say **Posted**.
+- Posts are labeled AI-generated on YouTube and TikTok by default; you can untick this per post.
+
+**1. Environment variables** (Vercel → Settings → Environment Variables, server-only, never `NEXT_PUBLIC_`)
+
+| Variable | What it is |
+|---|---|
+| `SOCIAL_TOKEN_KEY` | A long random string (e.g. `openssl rand -base64 32`). Changing it later means everyone reconnects. |
+| `CRON_SECRET` | Another long random string. Protects `/api/social/run`. |
+| `BILLING_DB_SECRET` | Already set up for payments (`select public.new_billing_secret();`). |
+| `NEXT_PUBLIC_SITE_URL` | Your live address, e.g. `https://tsayvish.com`. Sign-in redirects are built from it. |
+| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET` | Meta app → Instagram → API setup with Instagram business login |
+| `META_APP_ID`, `META_APP_SECRET` | Meta app → App settings → Basic (for Facebook Pages) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → APIs & Services → Credentials (OAuth client, web application) |
+| `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | TikTok for Developers → your app |
+
+A platform shows "Not switched on yet" until its keys are set.
+
+**2. Register the apps.** Each app's redirect URL is `https://<your site>/api/social/callback/<platform>`, where platform is `instagram`, `facebook`, `youtube` or `tiktok`.
+- **Meta (Instagram + Facebook):** create a Business app at developers.facebook.com.
+  - Add *Instagram API with Instagram Login* with the permissions `instagram_business_basic` and `instagram_business_content_publish`.
+  - Add *Facebook Login for Business* with `pages_show_list`, `pages_manage_posts` and `pages_read_engagement`.
+  - Before people outside your app's roles can connect, Meta needs App Review and Business Verification.
+  - Instagram accounts must be professional (business or creator).
+- **YouTube:** in Google Cloud, enable *YouTube Data API v3*. Set up the OAuth consent screen with the scopes `youtube.upload` and `youtube.readonly`, then add your redirect URL.
+  - Until Google verifies the app, only listed test users can connect, and their sign-ins expire after 7 days.
+  - Until the API project passes YouTube's audit, every upload is forced to **private**.
+  - The default quota is about 6 uploads a day across all characters.
+- **TikTok:** create an app at developers.tiktok.com. Add *Login Kit* and *Content Posting API* (Direct Post) with the scopes `user.info.basic`, `user.info.profile` and `video.publish`, then add your redirect URL.
+  - Until TikTok audits the app, posts can only be **Only me**, and only to private accounts.
+  - The composer follows TikTok's posting guidelines: it shows the creator's own privacy options with no default, interaction toggles, and brand disclosure.
+
+**3. Run the publisher every minute.** Vercel's free (Hobby) plan only runs cron jobs once a day, so `vercel.json` includes just a daily backstop. For on-time scheduled posts, use Supabase's built-in scheduler. Run this once in the SQL Editor, with your site and `CRON_SECRET`:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+select cron.schedule('social-publisher', '* * * * *', $$
+  select net.http_post(
+    url := 'https://tsayvish.com/api/social/run',
+    headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET'),
+    timeout_milliseconds := 300000);
+$$);
+```
+
+(On Vercel Pro you can instead change the schedule in `vercel.json` to `* * * * *`.) **Post now** doesn't wait for the scheduler, and an open Social page keeps its own posts moving.
+
 ## Orgs and who can see what
 
 Nobody, admins included, can see everyone on the platform. Admins only see and act on people who **share an org** with them: their characters, AI Studio jobs, credits, service requests, reports and the audit log. Everyone else is invisible to them, and the admin tools (ban, credits, billing switch, spend cap) refuse anyone outside their orgs.

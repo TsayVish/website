@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { money, priceFor } from "@/lib/billing";
@@ -123,6 +124,7 @@ export function MediaViewer({
 
           <div className="as-actions">
             {src && <button type="button" className="btn ghost st-small" onClick={() => (m ? downloadFile(src, fileName(m)) : downloadFile(src, `${label || "character"}.png`))}>Download</button>}
+            {m && m.kind !== "audio" && canEdit && <Link className="btn ghost st-small" href={`/studio/p/${projectId}/social?media=${m.id}`}>Post to social</Link>}
             {isImage && canEdit && <button type="button" className="btn ghost st-small" onClick={() => onUseAsReference(key)}>Use as reference</button>}
             {isImage && canEdit && configured && <button type="button" className="btn ghost st-small" onClick={() => onAnimate(key)}>Animate</button>}
             {m && isImage && canEdit && src && (

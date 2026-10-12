@@ -144,9 +144,12 @@ export default async function ProjectPage({
           )}
         </div>
         {isOriginal && (
-          <Link className="btn st-small ai-open" href={`/studio/p/${project.id}/ai`}>
-            <span aria-hidden="true">✦</span> AI Studio
-          </Link>
+          <div className="st-project-go">
+            <Link className="btn ghost st-small" href={`/studio/p/${project.id}/social`}>Social</Link>
+            <Link className="btn st-small ai-open" href={`/studio/p/${project.id}/ai`}>
+              <span aria-hidden="true">✦</span> AI Studio
+            </Link>
+          </div>
         )}
       </div>
 
@@ -168,6 +171,13 @@ export default async function ProjectPage({
               <p>Upload reference art, voices and footage, write a script, and generate pictures, voice lines and video clips of {project.name}.</p>
             </div>
             <Link className="btn st-small" href={`/studio/p/${project.id}/ai`}>Open AI Studio</Link>
+          </div>
+          <div className="panel ai-callout">
+            <div>
+              <b className="st-panel-title">Social</b>
+              <p>Connect {project.name}’s Instagram, Facebook, YouTube and TikTok, then post or schedule what you make.</p>
+            </div>
+            <Link className="btn ghost st-small" href={`/studio/p/${project.id}/social`}>Open Social</Link>
           </div>
           <div className="st-table">
             <div className="st-row st-row-head st-svc-row" aria-hidden="true">

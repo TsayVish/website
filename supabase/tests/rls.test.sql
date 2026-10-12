@@ -425,4 +425,80 @@ do $$ begin assert (select count(*) from public.orgs) = 0 and (select count(*) f
 select pg_temp.expect_error($q$select * from public.org_member_list((select org_id from public.org_members limit 1))$q$, 'not found');
 commit;
 
+-- ── 12. Social publishing ──
+insert into public.studio_media (id, project_id, added_by, kind, path, mime, bytes) values
+  ('30000000-0000-0000-0000-0000000000f1', '10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'video', '10000000-0000-0000-0000-000000000001/clip.mp4', 'video/mp4', 1234);
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+select pg_temp.expect_error($q$select public.social_save_account('10000000-0000-0000-0000-000000000001', 'tiktok', 'x', 'X', 'x', null, 'enc', null, null)$q$, 'only the character');
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true); set local role authenticated;
+create temp table soc as select
+  public.social_save_account('10000000-0000-0000-0000-000000000001', 'tiktok', 'tt1', 'Mango TT', '@mango', null, 'v1.secret-token', 'v1.secret-refresh', now() + interval '1 day') as tt,
+  public.social_save_account('10000000-0000-0000-0000-000000000001', 'instagram', 'ig1', 'Mango IG', 'mango', null, 'v1.ig-token', null, now() + interval '50 days') as ig;
+grant select on soc to anon, authenticated;
+-- reconnecting replaces, not duplicates
+select public.social_save_account('10000000-0000-0000-0000-000000000001', 'tiktok', 'tt1', 'Mango TT', '@mango', null, 'v1.new-token', 'v1.secret-refresh', now() + interval '1 day');
+do $$ begin assert (select count(*) from public.social_accounts) = 2, 'one account per platform'; end $$;
+select pg_temp.expect_error($q$select token_enc from public.social_accounts$q$, 'permission denied');
+select pg_temp.expect_error($q$update public.social_accounts set name = 'x'$q$, 'permission denied');
+select pg_temp.expect_error($q$select public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/ref.png?token=t', 'hi', null, '{}', null, array[(select tt from soc)])$q$, 'only takes videos');
+select pg_temp.expect_error($q$select public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=t', 'hi', null, '{}', now() + interval '90 days', array[(select tt from soc)])$q$, '60 days');
+select pg_temp.expect_error($q$select public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=t', 'hi', null, '{}', null, '{}')$q$, 'at least one');
+select pg_temp.expect_error($q$select public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1', 'https://evil.example/other.mp4', 'hi', null, '{}', null, array[(select tt from soc)])$q$, 'link isn’t valid');
+create temp table soc_post as select
+  public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=t', 'Hello world', null, '{"tiktok":{"privacy":"SELF_ONLY"}}', null, array[(select tt from soc), (select ig from soc)]) as now_post,
+  public.social_create_post('10000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-0000000000f1', 'https://x/storage/v1/object/sign/studio-media/10000000-0000-0000-0000-000000000001/clip.mp4?token=t', 'Later', null, '{}', now() + interval '2 days', array[(select ig from soc)]) as later_post;
+grant select on soc_post to anon, authenticated;
+do $$ begin assert (select count(*) from public.social_post_targets) = 3, 'one delivery per account'; end $$;
+do $$ begin assert (select status from public.social_posts where id = (select now_post from soc_post)) = 'scheduled', 'starts scheduled'; end $$;
+commit;
+
+-- teammates see posts; strangers see nothing
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', true); set local role authenticated;
+do $$ begin assert (select count(*) from public.social_posts) = 0 and (select count(*) from public.social_accounts) = 0, 'strangers see no social data'; end $$;
+select pg_temp.expect_error($q$select public.social_cancel_post((select later_post from soc_post))$q$, 'not found');
+select pg_temp.expect_error($q$select * from public.social_claim('wrong')$q$, 'not allowed');
+commit;
+
+-- the publisher claims only what is due, and only once
+begin;
+set local role anon;
+create temp table claimed on commit preserve rows as select * from public.social_claim((select s from billing_secret_out), 10);
+do $$ begin assert (select count(*) from claimed) = 2 and (select token_enc from claimed where platform = 'tiktok') = 'v1.new-token', 'two deliveries due now'; end $$;
+do $$ begin assert (select count(*) from public.social_claim((select s from billing_secret_out), 10)) = 0, 'locked while publishing'; end $$;
+do $$ begin assert (select token_enc from public.social_account_secret((select s from billing_secret_out), (select tt from soc))) = 'v1.new-token', 'publisher reads the token'; end $$;
+select public.social_report((select s from billing_secret_out), (select target_id from claimed where platform = 'tiktok'),
+  'processing', '{"publish_id":"p1"}', null, null, null, 5);
+select public.social_report((select s from billing_secret_out), (select target_id from claimed where platform = 'instagram'),
+  'posted', null, 'm1', 'https://instagram.com/p/m1', null);
+select public.social_update_account((select s from billing_secret_out), (select tt from soc), p_reconnect_error => 'Sign in again');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true); set local role authenticated;
+do $$ begin assert (select status from public.social_posts where id = (select now_post from soc_post)) = 'publishing', 'still publishing'; end $$;
+do $$ begin assert (select external_url from public.social_post_targets where platform = 'instagram' and post_id = (select now_post from soc_post)) like 'https://instagram.com/%', 'link saved'; end $$;
+do $$ begin assert (select status from public.social_accounts where platform = 'tiktok') = 'reconnect', 'flagged for reconnect'; end $$;
+select pg_temp.expect_error($q$select public.social_delete_post((select now_post from soc_post))$q$, 'going out');
+select public.social_cancel_post((select later_post from soc_post));
+do $$ begin assert (select status from public.social_posts where id = (select later_post from soc_post)) = 'canceled', 'canceled'; end $$;
+commit;
+begin;
+set local role anon;
+select public.social_report((select s from billing_secret_out), (select target_id from claimed where platform = 'tiktok'),
+  'failed', null, null, null, 'Account is private');
+commit;
+begin;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true); set local role authenticated;
+do $$ begin assert (select status from public.social_posts where id = (select now_post from soc_post)) = 'partial', 'one went out, one failed'; end $$;
+select public.social_disconnect((select ig from soc));
+do $$ begin assert (select count(*) from public.social_accounts) = 1, 'disconnected'; end $$;
+select public.social_delete_post((select now_post from soc_post));
+do $$ begin assert (select count(*) from public.social_posts) = 1, 'deleted from the list'; end $$;
+commit;
+
 \echo 'All RLS tests passed'
