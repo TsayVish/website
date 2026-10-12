@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { NotificationBadge } from "./NotificationBadge";
 import { isSettingsPath } from "./settings/SettingsNav";
 import { UnreadBadge } from "./UnreadBadge";
-import { IconBell, IconChat, IconCompass, IconDashboard, IconGear, IconGrid, IconHandshake, IconSearch, IconSpark, IconStore } from "./icons";
+import { IconBell, IconChat, IconCompass, IconDashboard, IconGear, IconGrid, IconSearch, IconStore } from "./icons";
 
 type NavLink = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean; badge?: "messages" | "notes" };
 
@@ -20,10 +20,6 @@ const MAIN: NavLink[] = [
   { href: "/studio/marketplace", label: "Marketplace", icon: <IconStore />, match: (p) => p.startsWith("/studio/marketplace") || p.startsWith("/studio/deals") },
 ];
 
-const CREATE: NavLink[] = [
-  { href: "/studio/new/original", label: "New character", icon: <IconSpark />, match: (p) => p.startsWith("/studio/new/original") },
-  { href: "/studio/new/partner", label: "Partner with tsayvish", icon: <IconHandshake />, match: (p) => p.startsWith("/studio/new/partner") },
-];
 
 export function StudioNav({ me, unread, notes = 0 }: { me: string; unread: number; notes?: number }) {
   const path = usePathname() ?? "";
@@ -37,10 +33,7 @@ export function StudioNav({ me, unread, notes = 0 }: { me: string; unread: numbe
   );
   return (
     <nav className="st-nav" aria-label="Studio">
-      <span className="st-nav-label">Explore</span>
       {MAIN.map(item)}
-      <span className="st-nav-label">Create</span>
-      {CREATE.map(item)}
     </nav>
   );
 }
