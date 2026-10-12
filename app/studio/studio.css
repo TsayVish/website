@@ -1478,3 +1478,54 @@ a.st-row:hover{background:var(--st-bg)}
 }
 .adm-filter{justify-self:start}
 .ai-base{display:flex; gap:8px; align-items:center; font-size:.8rem; color:var(--muted)}
+
+/* Admin → Members */
+.adm-m-toolbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px}
+.adm-m-toolbar form{flex:1 1 280px; max-width:360px}
+.adm-m-toolbar .hub-search{max-width:none; width:100%}
+.adm-member{grid-template-columns:minmax(0,2fr) 104px 92px 124px 104px 236px; align-items:center; column-gap:16px}
+.adm-member.st-row-head span:nth-child(5){text-align:right}
+.adm-m-who{display:grid; grid-template-columns:auto auto 1fr; align-items:center; column-gap:8px; min-width:0}
+.adm-m-who a{color:var(--ink); text-decoration:none; min-width:0}
+.adm-m-who a:hover b{text-decoration:underline}
+.adm-m-who b{font-size:.92rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block}
+.adm-m-who small{grid-column:1 / -1; font-size:.8rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.adm-you{font-size:.68rem; font-weight:600; padding:1px 7px; border-radius:999px; background:color-mix(in srgb, var(--accent) 12%, var(--st-panel)); color:var(--accent)}
+.adm-m-status .st-status{margin-left:0}
+.adm-m-credits{display:grid; justify-items:end; gap:1px; font-variant-numeric:tabular-nums}
+.adm-m-credits b{font-size:.9rem; font-weight:600}
+.adm-m-credits small{font-size:.72rem; color:var(--muted)}
+.adm-m-actions{display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap}
+.adm-m-actions .btn[aria-expanded="true"]{background:var(--st-bg); box-shadow:inset 0 0 0 1px var(--ink)}
+.adm-danger{color:#C0392B !important}
+.adm-danger-fill{background:#C0392B !important; border-color:#C0392B !important; color:#fff !important}
+.adm-switch{display:inline-flex; align-items:center; gap:8px; background:none; border:0; padding:0; cursor:pointer; font:500 .84rem var(--body); color:var(--ink)}
+.adm-switch:disabled{opacity:.6; cursor:progress}
+.adm-switch-track{position:relative; width:34px; height:20px; border-radius:999px; background:color-mix(in srgb, var(--muted) 35%, var(--st-panel)); transition:background .15s; flex:none}
+.adm-switch-dot{position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .15s}
+.adm-switch[aria-checked="true"] .adm-switch-track{background:var(--accent)}
+.adm-switch[aria-checked="true"] .adm-switch-dot{transform:translateX(14px)}
+.adm-switch[aria-checked="false"] .adm-switch-text{color:#14804A}
+.adm-switch:focus-visible .adm-switch-track{outline:2px solid var(--accent); outline-offset:2px}
+.adm-m-panel{grid-column:1 / -1; display:grid; gap:10px; margin-top:6px; padding:12px; border-radius:10px; background:var(--st-bg); border:1px solid var(--st-hair)}
+.adm-m-fields{display:flex; flex-wrap:wrap; gap:10px}
+.adm-m-fields .field{display:grid; gap:4px; width:160px}
+.adm-m-fields .adm-grow{flex:1 1 240px; width:auto}
+.adm-m-fields .lbl{font-size:.74rem; font-weight:600; color:var(--muted)}
+.adm-m-buttons{display:flex; gap:8px; flex-wrap:wrap}
+.adm-m-msg{grid-column:1 / -1; margin:2px 0 0; font-size:.8rem; color:var(--muted)}
+.adm-member.is-open{background:color-mix(in srgb, var(--accent) 3%, var(--st-panel))}
+:root[data-theme="dark"] .adm-switch[aria-checked="false"] .adm-switch-text{color:#6FD3A3}
+@media (max-width:980px){
+  .adm-member{grid-template-columns:minmax(0,1fr) 120px 90px; row-gap:8px}
+  .adm-member > .adm-m-joined, .adm-member > .adm-m-status, .adm-member.st-row-head span:nth-child(2), .adm-member.st-row-head span:nth-child(3){display:none}
+  .adm-m-actions{grid-column:1 / -1; justify-content:flex-start}
+  .adm-member.st-row-head span:nth-child(6){display:none}
+}
+@media (max-width:560px){
+  .adm-member{grid-template-columns:minmax(0,1fr) auto}
+  .adm-member.st-row-head{display:none}
+  .adm-m-credits{justify-items:start}
+  .adm-m-billing{grid-column:1; grid-row:2}
+  .adm-m-credits{grid-column:2; grid-row:1}
+}

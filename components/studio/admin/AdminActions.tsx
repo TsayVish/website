@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type RpcResult = { error: { message: string } | null };
 
-function useRpc() {
+export function useRpc() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
