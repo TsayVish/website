@@ -37,7 +37,7 @@ export function GeneratePanel({
   tool: Tool;
   model: ModelDef;
   onTool: (t: Tool) => void;
-  onModel: (id: string) => void;
+  onModel: (id: string, params?: Record<string, string>) => void;
   prompt: string;
   onPrompt: (v: string) => void;
   params: Record<string, string>;
@@ -116,6 +116,7 @@ export function GeneratePanel({
     setBusy(false);
   }
 
+  const soundModel = modelsFor("video").find((m) => m.options.some((o) => o.key === "generate_audio"));
   const visibleOptions = model.options.filter((o) => !o.hidden && !(o.key === "aspect_ratio" && tool === "video" && inputs.some((p) => p.kind === "image")));
 
   return (
@@ -174,6 +175,16 @@ export function GeneratePanel({
             <span className="visually-hidden">Model</span>
             <select value={model.id} onChange={(e) => onModel(e.target.value)}>
               {modelsFor(tool).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </label>
+        )}
+        {tool === "video" && !model.options.some((o) => o.key === "generate_audio") && soundModel && (
+          // Only some video models make sound; picking "With sound" switches to one that does.
+          <label className="as-pill">
+            <span className="visually-hidden">Sound</span>
+            <select value="off" onChange={(e) => { if (e.target.value === "on") onModel(soundModel.id, { duration: opts.duration ?? "5", generate_audio: "on" }); }}>
+              <option value="off">Silent</option>
+              <option value="on">With sound ({soundModel.label})</option>
             </select>
           </label>
         )}

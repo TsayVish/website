@@ -263,7 +263,7 @@ export function AIStudio(props: StudioProps) {
             tool={tool}
             model={model}
             onTool={chooseTool}
-            onModel={(id) => { setModelId(id); setParams({}); }}
+            onModel={(id, p) => { setModelId(id); setParams(p ?? {}); }}
             prompt={prompt}
             onPrompt={setPrompt}
             params={params}
