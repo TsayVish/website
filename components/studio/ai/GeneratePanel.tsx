@@ -1,21 +1,36 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   TOOLS, checkRequest, cleanParams, modelsFor, type InputFile, type MediaKind, type ModelDef, type Tool,
 } from "@/lib/studio/catalog";
-import Link from "next/link";
 import { money, priceFor } from "@/lib/billing";
-import type { StudioMedia } from "@/lib/studio/types";
-import type { CharacterImage } from "./MediaLibrary";
+import { clock, type CharacterImage, type StudioMedia } from "@/lib/studio/types";
 
 export type Target = { scriptId: string; sceneId: string; role: "clip" | "voice"; label: string };
 
-const MAKE_TOOLS = TOOLS.filter((t) => t.key !== "assemble");
+const MAKE_TOOLS: { key: Tool; label: string }[] = [
+  { key: "image", label: "Image" },
+  { key: "video", label: "Video" },
+  { key: "voice", label: "Voice" },
+  { key: "talking", label: "Talking" },
+];
 
+const PLACEHOLDER: Record<string, string> = {
+  image: "Describe the picture: sitting at a desk with a coffee and a puppy, soft morning light…",
+  video: "Describe the shot: slowly looks up from the laptop and smiles at the camera…",
+  voice: "Type the line to be spoken. Tags like [sighs] or [laughs] add expression.",
+  talking: "",
+};
+
+type Ref = { key: string; kind: MediaKind; label: string; thumb?: string; durationMs: number | null; isBase?: boolean };
+
+/** The prompt box: what to make, references, options and the Generate button. */
 export function GeneratePanel({
   canEdit, configured, tool, model, onTool, onModel, prompt, onPrompt, params, onParams,
-  selected, onSelect, mediaById, characterImages, urls, target, onClearTarget, balance, markup, free = false, onStart,
+  selected, onSelect, media, mediaById, characterImages, urls, target, onClearTarget, balance, markup, free = false, onStart,
 }: {
   canEdit: boolean;
   configured: boolean;
@@ -29,6 +44,7 @@ export function GeneratePanel({
   onParams: (p: Record<string, string>) => void;
   selected: string[];
   onSelect: (keys: string[]) => void;
+  media: StudioMedia[];
   mediaById: Map<string, StudioMedia>;
   characterImages: CharacterImage[];
   urls: Record<string, string>;
@@ -42,42 +58,43 @@ export function GeneratePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [consent, setConsent] = useState(false);
-  // The character's own picture is the starting point unless the person turns it off.
   const [useBase, setUseBase] = useState(true);
+  const [picking, setPicking] = useState(false);
   const base = characterImages.find((c) => c.key.startsWith("character:")) ?? characterImages[0];
 
   const opts = cleanParams(model, params);
-
-  // What's selected in the library, in order, as inputs this model can use.
-  const picked = selected.map((key) => {
+  const toRef = (key: string): Ref | null => {
     if (key.startsWith("media:")) {
       const m = mediaById.get(key.slice(6));
       return m ? { key, kind: m.kind, label: m.label || m.kind, thumb: m.kind === "image" ? urls[m.path] : undefined, durationMs: m.duration_ms } : null;
     }
     const c = characterImages.find((x) => x.key === key);
-    return c ? { key, kind: "image" as MediaKind, label: c.label, thumb: c.url, durationMs: null } : null;
-  }).filter((x): x is NonNullable<typeof x> => !!x);
-  const imageSlots = model.needs.image?.[1] ?? 0;
-  const baseApplies = !!base && useBase && imageSlots > 0 && !picked.some((p) => p.key === base.key)
-    // Models that take a single picture use the base only when nothing else is picked.
-    && (imageSlots > 1 || !picked.some((p) => p.kind === "image"));
-  if (baseApplies) picked.unshift({ key: base.key, kind: "image", label: base.label, thumb: base.url, durationMs: null });
-  const usable = picked.filter((p) => (model.needs[p.kind]?.[1] ?? 0) > 0);
-  const ignored = picked.length - usable.length;
-  // Keep only as many of each kind as the model takes.
-  const inputs: typeof picked = [];
-  for (const p of usable) if (inputs.filter((x) => x.kind === p.kind).length < (model.needs[p.kind]?.[1] ?? 0)) inputs.push(p);
+    return c ? { key, kind: "image", label: c.label, thumb: c.url, durationMs: null } : null;
+  };
+  const picked = selected.map(toRef).filter((x): x is Ref => !!x);
+  const slots = (k: MediaKind) => model.needs[k]?.[1] ?? 0;
+  const baseApplies = !!base && useBase && slots("image") > 0 && !picked.some((p) => p.key === base.key)
+    && (slots("image") > 1 || !picked.some((p) => p.kind === "image"));
+  if (baseApplies) picked.unshift({ key: base.key, kind: "image", label: base.label, thumb: base.url, durationMs: null, isBase: true });
+  const inputs: Ref[] = [];
+  for (const p of picked) if (inputs.filter((x) => x.kind === p.kind).length < slots(p.kind)) inputs.push(p);
   const files = (k: MediaKind): InputFile[] => inputs.filter((p) => p.kind === k).map((p) => ({ kind: k, url: "", durationMs: p.durationMs }));
   const args = { prompt, params: opts, images: files("image"), audio: files("audio"), video: files("video") };
   const price = free ? 0 : priceFor(model.cost(args), markup);
   const problem = checkRequest(model, prompt, { image: args.images.length, audio: args.audio.length, video: args.video.length });
-  const short = price > balance;
-  const needsConsent = tool === "talking";
+  const short = !free && price > balance;
+  const takesRefs = slots("image") > 0 || slots("audio") > 0;
+  const room = (slots("image") - inputs.filter((p) => p.kind === "image").length) + (slots("audio") - inputs.filter((p) => p.kind === "audio").length);
+
+  function removeRef(r: Ref) {
+    if (r.isBase) setUseBase(false);
+    else onSelect(selected.filter((k) => k !== r.key));
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (problem) return setError(problem);
-    if (needsConsent && !consent) return setError("Confirm you have the rights to this face and voice.");
+    if (tool === "talking" && !consent) return setError("Confirm you have the rights to this face and voice.");
     setBusy(true);
     setError("");
     try {
@@ -99,135 +116,164 @@ export function GeneratePanel({
     setBusy(false);
   }
 
-  const needText = (k: MediaKind) => {
-    const [min, max] = model.needs[k] ?? [0, 0];
-    if (!max) return null;
-    const noun = k === "image" ? "picture" : k === "audio" ? "voice line" : "video";
-    if (min === max) return `${min} ${noun}${min > 1 ? "s" : ""}`;
-    if (min === 0) return `up to ${max} ${noun}${max > 1 ? "s" : ""} (optional)`;
-    return `${min}–${max} ${noun}s`;
-  };
-  const needs = (["image", "audio", "video"] as MediaKind[]).map(needText).filter(Boolean);
+  const visibleOptions = model.options.filter((o) => !o.hidden && !(o.key === "aspect_ratio" && tool === "video" && inputs.some((p) => p.kind === "image")));
 
   return (
-    <form className="ai-panel ai-generator" onSubmit={submit} noValidate>
-      <div className="ai-head">
-        <h2>Generate</h2>
-        {free ? (
-          <span className="ai-usage" title="The tsayvish team turned billing off for your account">Billing off · <b>free for you</b></span>
-        ) : (
-          <span className="ai-usage">
-            Credits <b>{money(balance)}</b> · <Link href="/studio/credits">Top up</Link>
-          </span>
-        )}
-      </div>
-
-      {!configured && (
-        <p className="ai-off" role="status">AI generation isn’t switched on yet. You can upload files and write scripts now; generating starts once the tsayvish team adds the AI provider key.</p>
-      )}
-
-      <div className="ai-tools" role="radiogroup" aria-label="What to make">
+    <form className="as-composer" onSubmit={submit} noValidate>
+      <div className="as-tools" role="radiogroup" aria-label="What to make">
         {MAKE_TOOLS.map((t) => (
-          <button key={t.key} type="button" role="radio" aria-checked={tool === t.key} className="ai-tool" onClick={() => onTool(t.key)}>
-            {t.label}
-          </button>
+          <button key={t.key} type="button" role="radio" aria-checked={tool === t.key} onClick={() => onTool(t.key)}>{t.label}</button>
         ))}
       </div>
-      <p className="ai-hint">{TOOLS.find((t) => t.key === tool)?.help}</p>
 
+      {!configured && <p className="as-note warn">Generation isn’t switched on yet. You can upload files and write scripts in the meantime.</p>}
       {target && (
-        <div className="ai-target">
-          <span>Result goes to <b>{target.label}</b> as its {target.role === "voice" ? "voice line" : "clip"}.</span>
+        <p className="as-note">
+          Result goes to <b>{target.label}</b> as its {target.role === "voice" ? "voice line" : "clip"}.{" "}
           <button type="button" className="linklike" onClick={onClearTarget}>Don’t link</button>
-        </div>
+        </p>
       )}
 
-      {modelsFor(tool).length > 1 && (
-        <div className="field">
-          <label className="lbl" htmlFor="ai-model">Model</label>
-          <select id="ai-model" className="st-input" value={model.id} onChange={(e) => onModel(e.target.value)}>
-            {modelsFor(tool).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-        </div>
-      )}
-      <p className="ai-model-blurb">{model.blurb}</p>
-
-      {model.prompt !== "none" && (
-        <div className="field">
-          <label className="lbl" htmlFor="ai-prompt">{model.promptLabel}</label>
-          <textarea id="ai-prompt" className="st-input" rows={tool === "voice" ? 4 : 3} maxLength={model.promptMax} value={prompt}
-            onChange={(e) => onPrompt(e.target.value)}
-            placeholder={tool === "voice" ? "Ugh. Five more minutes. [sighs] Okay, fine." : tool === "video" ? "Slowly yawns, rubs eyes, slumps into the pillow. Soft morning light." : "Sitting at a tiny desk with a laptop, looking exhausted, coffee mug, cozy room"} />
-          {tool === "voice" && <small className="ai-hint">Tip: tags like [sighs], [whispers] or [laughs] add expression.</small>}
-        </div>
+      {model.prompt !== "none" ? (
+        <textarea id="ai-prompt" className="as-prompt" rows={tool === "voice" ? 5 : 4} maxLength={model.promptMax} value={prompt}
+          aria-label={model.promptLabel} placeholder={PLACEHOLDER[tool]} onChange={(e) => onPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.currentTarget.form as HTMLFormElement).requestSubmit(); }} />
+      ) : (
+        <p className="as-help">{TOOLS.find((t) => t.key === tool)?.help} Pick a picture and a voice line below.</p>
       )}
 
-      {model.options.length > 0 && (
-        <div className="ai-options">
-          {model.options.map((o) => (
-            <div key={o.key} className="field">
-              <label className="lbl" htmlFor={`ai-o-${o.key}`}>{o.label}</label>
-              <select id={`ai-o-${o.key}`} className="st-input" value={opts[o.key]} onChange={(e) => onParams({ ...params, [o.key]: e.target.value })}>
-                {o.choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
+      {takesRefs && (
+        <div className="as-refs" aria-label="References">
+          {inputs.map((r) => (
+            <div key={r.key} className={`as-ref${r.isBase ? " base" : ""}`} title={r.label}>
+              {r.thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={r.thumb} alt="" />
+              ) : (
+                <span className="as-ref-audio" aria-hidden="true">♪<small>{clock(r.durationMs)}</small></span>
+              )}
+              {r.isBase && <span className="as-ref-tag">Base</span>}
+              <button type="button" className="as-ref-x" aria-label={`Remove ${r.label}`} onClick={() => removeRef(r)}>×</button>
             </div>
           ))}
+          {room > 0 && (
+            <button type="button" className="as-ref-add" onClick={() => setPicking(true)} aria-label="Add a reference">
+              <span aria-hidden="true">+</span>
+              <small>{tool === "talking" && !inputs.some((p) => p.kind === "audio") ? "Voice" : "Add"}</small>
+            </button>
+          )}
+          {base && slots("image") > 0 && !useBase && (
+            <button type="button" className="linklike as-base-back" onClick={() => setUseBase(true)}>Use {base.label.toLowerCase()} as base</button>
+          )}
         </div>
       )}
 
-      {needs.length > 0 && (
-        <div className="ai-inputs">
-          <span className="lbl">Uses {needs.join(" and ")}</span>
-          {inputs.length ? (
-            <ul className="ai-chips">
-              {inputs.map((p) => (
-                <li key={p.key} className="ai-chip">
-                  {p.thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.thumb} alt="" />
-                  ) : <span className="ai-chip-icon" aria-hidden="true">{p.kind === "audio" ? "♪" : "▶"}</span>}
-                  <span>{p.label}</span>
-                  <button type="button" aria-label={`Remove ${p.label}`}
-                    onClick={() => (base && p.key === base.key && !selected.includes(p.key) ? setUseBase(false) : onSelect(selected.filter((k) => k !== p.key)))}>×</button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="ai-hint">Pick from the library{characterImages.length ? " or the character’s pictures" : ""}.</p>
-          )}
-          {base && imageSlots > 0 && (
-            <label className="ai-base">
-              <input type="checkbox" checked={useBase} onChange={(e) => setUseBase(e.target.checked)} />
-              <span>Start from the character’s picture{tool === "image" ? " and keep their look" : ""}</span>
-            </label>
-          )}
-          {ignored > 0 && <p className="ai-hint">{ignored} selected file{ignored > 1 ? "s aren’t" : " isn’t"} used by this tool.</p>}
-        </div>
-      )}
+      <div className="as-opts">
+        {modelsFor(tool).length > 1 && (
+          <label className="as-pill">
+            <span className="visually-hidden">Model</span>
+            <select value={model.id} onChange={(e) => onModel(e.target.value)}>
+              {modelsFor(tool).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </label>
+        )}
+        {visibleOptions.map((o) => (
+          <label key={o.key} className="as-pill">
+            <span className="visually-hidden">{o.label}</span>
+            <select id={`ai-o-${o.key}`} value={opts[o.key]} onChange={(e) => onParams({ ...params, [o.key]: e.target.value })}>
+              {o.choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </label>
+        ))}
+      </div>
 
-      {needsConsent && (
-        <label className="ai-consent">
+      {tool === "talking" && (
+        <label className="as-consent">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>I own this character and voice, or have permission to use them. I won’t use this to imitate a real person without their consent.</span>
+          <span>I own this character and voice, or have permission to use them.</span>
         </label>
       )}
 
-      {error && (
-        <p className="form-error" role="alert">
-          {error} {/credits/i.test(error) && <Link href="/studio/credits">Add credits</Link>}
+      {(error || (short && canEdit)) && (
+        <p className="form-error as-error" role="alert">
+          {error || "Not enough credits for this."} {(short || /credits/i.test(error)) && <Link href="/studio/credits">Add credits</Link>}
         </p>
       )}
-      {short && !error && canEdit && (
-        <p className="form-error" role="alert">Not enough credits for this. <Link href="/studio/credits">Add credits</Link></p>
-      )}
 
-      <div className="ai-go">
-        <span className="ai-cost">{free ? "Free" : money(price)}</span>
-        <button type="submit" className="btn" disabled={!canEdit || !configured || busy || short}>
-          {busy ? "Starting…" : "Generate"}
-        </button>
+      <div className="as-go">
+        <span className="as-price">{free ? "Free" : money(price)}<small>{model.label}</small></span>
+        <button type="submit" className="btn" disabled={!canEdit || !configured || busy || short}>{busy ? "Starting…" : "Generate"}</button>
       </div>
-      {!canEdit && <p className="ai-hint">You can view this studio. Ask an owner or editor to make things.</p>}
+      {!canEdit && <p className="as-help">You can view this studio. Ask an owner or editor to make things.</p>}
+
+      {picking && (
+        <ReferencePicker
+          kinds={(["image", "audio"] as MediaKind[]).filter((k) => slots(k) > 0)}
+          media={media}
+          characterImages={characterImages}
+          urls={urls}
+          selected={selected}
+          onToggle={(key) => onSelect(selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key])}
+          onClose={() => setPicking(false)}
+        />
+      )}
     </form>
+  );
+}
+
+/** A small sheet to pick reference pictures or voice lines from the library. */
+function ReferencePicker({ kinds, media, characterImages, urls, selected, onToggle, onClose }: {
+  kinds: MediaKind[];
+  media: StudioMedia[];
+  characterImages: CharacterImage[];
+  urls: Record<string, string>;
+  selected: string[];
+  onToggle: (key: string) => void;
+  onClose: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    box.current?.focus();
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const items = [
+    ...(kinds.includes("image") ? characterImages.map((c) => ({ key: c.key, label: c.label, thumb: c.url, kind: "image" as MediaKind, ms: null as number | null })) : []),
+    ...media.filter((m) => kinds.includes(m.kind)).map((m) => ({ key: `media:${m.id}`, label: m.label || m.kind, thumb: m.kind === "image" ? urls[m.path] : undefined, kind: m.kind, ms: m.duration_ms })),
+  ];
+  return createPortal(
+    <div className="as-sheet-back" onClick={onClose}>
+      <div className="as-sheet" role="dialog" aria-modal="true" aria-label="Choose references" tabIndex={-1} ref={box} onClick={(e) => e.stopPropagation()}>
+        <div className="as-sheet-head">
+          <b>Choose {kinds.includes("audio") && !kinds.includes("image") ? "a voice line" : kinds.includes("audio") ? "a picture and a voice line" : "references"}</b>
+          <button type="button" className="btn st-small" onClick={onClose}>Done</button>
+        </div>
+        {items.length === 0 ? (
+          <p className="as-help">Nothing here yet. Upload files or generate some in the Library.</p>
+        ) : (
+          <ul className="as-pick">
+            {items.map((it) => {
+              const n = selected.indexOf(it.key) + 1;
+              return (
+                <li key={it.key}>
+                  <button type="button" aria-pressed={n > 0} onClick={() => onToggle(it.key)} title={it.label}>
+                    {it.thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={it.thumb} alt="" />
+                    ) : (
+                      <span className="as-ref-audio" aria-hidden="true">♪<small>{clock(it.ms)}</small></span>
+                    )}
+                    {n > 0 && <span className="as-check">{n}</span>}
+                  </button>
+                  <span>{it.label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>,
+    document.querySelector(".st") ?? document.body,
   );
 }

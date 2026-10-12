@@ -1,88 +1,86 @@
 "use client";
 
 import { useState } from "react";
-import { modelById, toolLabel } from "@/lib/studio/catalog";
 import { money } from "@/lib/billing";
-import { STATUS_TEXT, isPending, type StudioGeneration, type StudioMedia } from "@/lib/studio/types";
+import { modelById, toolLabel } from "@/lib/studio/catalog";
 import { agoInline } from "@/lib/offers";
+import { STATUS_TEXT, isPending, type StudioGeneration, type StudioMedia } from "@/lib/studio/types";
 
-const PAGE = 12;
+const PAGE = 18;
 
-/** Everything made for this character, newest first, with live status. */
+/** Results as a gallery, newest first. Click a result to open it. */
 export function GenerationFeed({
-  gens, media, urls, canEdit, onCancel, onUse,
+  gens, media, urls, canEdit, onCancel, onOpen,
 }: {
   gens: StudioGeneration[];
   media: StudioMedia[];
   urls: Record<string, string>;
   canEdit: boolean;
   onCancel: (id: string) => void;
-  onNotice: (text: string) => void;
-  onUse: (m: StudioMedia) => void;
+  onOpen: (m: StudioMedia) => void;
 }) {
   const [shown, setShown] = useState(PAGE);
-  if (!gens.length) {
+  const list = gens.filter((g) => g.tool !== "assemble" || g.status !== "canceled");
+
+  if (!list.length) {
     return (
-      <div className="ai-panel ai-feed">
-        <div className="ai-head"><h2>Results</h2></div>
-        <div className="ai-empty"><p>What you make shows up here, and in the library.</p></div>
+      <div className="as-empty">
+        <b>Your results show up here</b>
+        <p>Describe what you want on the left and press Generate. Everything you make is also saved to the Library.</p>
       </div>
     );
   }
+
   return (
-    <div className="ai-panel ai-feed">
-      <div className="ai-head"><h2>Results</h2></div>
-      <ul className="ai-results">
-        {gens.slice(0, shown).map((g) => {
+    <div className="as-results-wrap">
+      <ul className="as-results">
+        {list.slice(0, shown).map((g) => {
           const outs = media.filter((m) => m.generation_id === g.id);
           const title = g.params?.label || g.prompt || toolLabel(g.tool);
+          const meta = `${modelById(g.model)?.label ?? g.model} · ${agoInline(g.created_at)} · ${g.price_cents ? money(g.price_cents) : "free"}${g.status === "failed" && g.price_cents ? " refunded" : ""}`;
           return (
-            <li key={g.id} className={`ai-result ai-${g.status}`}>
-              <div className="ai-result-head">
-                <span className="ai-result-what">
-                  <b>{toolLabel(g.tool)}</b>
-                  <small>{modelById(g.model)?.label ?? g.model} · {agoInline(g.created_at)} · {g.price_cents ? money(g.price_cents) : "free"}{g.status === "failed" && g.price_cents ? " refunded" : ""}</small>
-                </span>
-                <span className={`ai-status ai-${g.status}`}>
-                  {isPending(g.status) && <span className="ai-spin" aria-hidden="true" />}
-                  {STATUS_TEXT[g.status]}
-                </span>
-              </div>
-              {title && <p className="ai-result-prompt" title={title}>{title}</p>}
-              {g.status === "failed" && g.error && <p className="ai-result-error">{g.error}</p>}
-              {isPending(g.status) && (
-                <div className="ai-result-wait">
-                  <span>{g.tool === "image" || g.tool === "voice" ? "Usually under a minute." : "Clips usually take 1–5 minutes. You can leave this page; it keeps going."}</span>
-                  {canEdit && <button type="button" className="linklike" onClick={() => onCancel(g.id)}>Stop</button>}
-                </div>
-              )}
-              {outs.length > 0 && (
-                <div className={`ai-outs n${Math.min(outs.length, 4)}`}>
-                  {outs.map((m) => {
+            <li key={g.id} className={`as-result as-${g.status}`}>
+              <div className={`as-result-media n${Math.min(outs.length, 4)} as-k-${g.tool}`}>
+                {isPending(g.status) ? (
+                  <div className="as-wait">
+                    <span className="as-spin" aria-hidden="true" />
+                    <span>{STATUS_TEXT[g.status]}…</span>
+                    <small>{g.tool === "image" || g.tool === "voice" ? "Usually under a minute" : "Usually 1–5 minutes"}</small>
+                    {canEdit && <button type="button" className="linklike" onClick={() => onCancel(g.id)}>Stop</button>}
+                  </div>
+                ) : g.status !== "succeeded" ? (
+                  <div className="as-wait as-fail">
+                    <b>{STATUS_TEXT[g.status]}</b>
+                    {g.error && <small>{g.error}</small>}
+                  </div>
+                ) : (
+                  outs.map((m) => {
                     const url = urls[m.path];
-                    if (!url) return <span key={m.id} className="ai-out ai-out-loading" />;
                     return (
-                      <div key={m.id} className="ai-out">
-                        {m.kind === "image" && (
+                      <button key={m.id} type="button" className="as-out" onClick={() => onOpen(m)} aria-label={`Open ${m.label || m.kind}`}>
+                        {!url ? <span className="as-shimmer" /> : m.kind === "image" ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={title} loading="lazy" /></a>
+                          <img src={url} alt="" loading="lazy" />
+                        ) : m.kind === "video" ? (
+                          <video src={url + "#t=0.1"} muted playsInline preload="metadata" />
+                        ) : (
+                          <span className="as-audio-tile"><span className="ai-wave" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></span></span>
                         )}
-                        {m.kind === "video" && <video src={url} controls playsInline preload="metadata" />}
-                        {m.kind === "audio" && <audio src={url} controls preload="metadata" />}
-                        <div className="ai-out-actions">
-                          <button type="button" className="linklike" onClick={() => onUse(m)}>Use</button>
-                          <a href={url} download target="_blank" rel="noopener noreferrer">Download</a>
-                        </div>
-                      </div>
+                        {m.kind === "video" && <span className="as-play" aria-hidden="true">▶</span>}
+                      </button>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </div>
+              <div className="as-result-cap">
+                <p title={title}>{title}</p>
+                <small>{meta}</small>
+              </div>
             </li>
           );
         })}
       </ul>
-      {gens.length > shown && <button type="button" className="btn ghost st-small" onClick={() => setShown((n) => n + PAGE)}>Show more</button>}
+      {list.length > shown && <button type="button" className="btn ghost st-small as-more" onClick={() => setShown((n) => n + PAGE)}>Show more</button>}
     </div>
   );
 }

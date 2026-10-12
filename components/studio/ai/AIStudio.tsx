@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { money } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/client";
 import { modelById, modelsFor, type Tool } from "@/lib/studio/catalog";
 import {
   MEDIA_COLUMNS, SCRIPT_COLUMNS, isPending, readScenes,
-  type Scene, type StudioGeneration, type StudioMedia, type StudioScript,
+  type CharacterImage, type Scene, type StudioGeneration, type StudioMedia, type StudioScript,
 } from "@/lib/studio/types";
-import { MediaLibrary, type CharacterImage } from "./MediaLibrary";
+import { MediaLibrary } from "./MediaLibrary";
+import { MediaViewer, type ViewerItem } from "./MediaViewer";
 import { ScriptEditor } from "./ScriptEditor";
 import { GeneratePanel, type Target } from "./GeneratePanel";
 import { GenerationFeed } from "./GenerationFeed";
@@ -23,11 +26,12 @@ export type StudioProps = {
   credits: { balance: number; markup: number; free?: boolean };
 };
 
-type Pane = "library" | "script" | "generate";
+type Tab = "create" | "library" | "episodes";
 
 /** The whole AI Studio for one character: library, script, generator and results. */
 export function AIStudio(props: StudioProps) {
-  const { project, canEdit, configured, characterImages } = props;
+  const { project, canEdit, configured } = props;
+  const [characterImages, setCharacterImages] = useState(props.characterImages);
   const [media, setMedia] = useState(props.media);
   const [gens, setGens] = useState(props.generations);
   const [scripts, setScripts] = useState(props.scripts.map((s) => ({ ...s, scenes: readScenes(s.scenes) })));
@@ -42,9 +46,15 @@ export function AIStudio(props: StudioProps) {
   const [balance, setBalance] = useState(props.credits.balance);
   const markup = props.credits.markup;
   const free = props.credits.free === true;
-  const [pane, setPane] = useState<Pane>("generate");
+  const [tab, setTab] = useState<Tab>("create");
+  const [viewer, setViewer] = useState<{ items: ViewerItem[]; index: number } | null>(null);
   const [notice, setNotice] = useState("");
   const dirtyScripts = useRef(new Set<string>());
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 4500);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   /* ── signed URLs for private files ── */
   const signing = useRef(new Set<string>());
@@ -174,7 +184,7 @@ export function AIStudio(props: StudioProps) {
     if (what === "talking" && scene.voice_media) {
       setSelected((sel) => [...sel.filter((k) => !k.startsWith("media:") || mediaById.get(k.slice(6))?.kind !== "audio"), `media:${scene.voice_media}`]);
     }
-    setPane("generate");
+    setTab("create");
   }
 
   function chooseTool(t: Tool) {
@@ -186,60 +196,66 @@ export function AIStudio(props: StudioProps) {
 
   const model = modelById(modelId) ?? modelsFor(tool)[0];
 
+  /* ── viewer ── */
+  const openMedia = (m: StudioMedia, list: StudioMedia[] = media) => {
+    const items: ViewerItem[] = list.map((x) => ({ type: "media", m: x }));
+    setViewer({ items, index: Math.max(0, list.findIndex((x) => x.id === m.id)) });
+  };
+  const openCharacter = (c: CharacterImage) => {
+    setViewer({ items: characterImages.map((x) => ({ type: "character", c: x })), index: characterImages.findIndex((x) => x.key === c.key) });
+  };
+  const current = viewer ? viewer.items[viewer.index] : null;
+  // Keep the viewer's item fresh after renames.
+  const currentItem: ViewerItem | null = current?.type === "media" ? (mediaById.get(current.m.id) ? { type: "media", m: mediaById.get(current.m.id)! } : null) : current;
+
+  function pickAsReference(key: string) {
+    setSelected((s) => (s.includes(key) ? s : [...s, key]));
+    if (tool !== "image" && tool !== "video") chooseTool("image");
+    setViewer(null);
+    setTab("create");
+  }
+  function animate(key: string) {
+    chooseTool("video");
+    setSelected([key]);
+    setViewer(null);
+    setTab("create");
+  }
+  async function aiEdit(key: string, change: string, label: string) {
+    const [type, id] = key.split(":");
+    await start({ model: "nano-banana-2", prompt: change, params: { mode: "edit", num_images: "1", aspect_ratio: "auto" }, inputs: [{ type, id }], label });
+    setViewer(null);
+    setTab("create");
+  }
+
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: "create", label: "Create" },
+    { key: "library", label: "Library", count: media.length },
+    { key: "episodes", label: "Episodes", count: scripts.length || undefined },
+  ];
+
   return (
-    <div className="ai">
-      <div className="ai-panes-nav st-tabs" role="tablist" aria-label="Studio sections">
-        {(["library", "script", "generate"] as Pane[]).map((p) => (
-          <button key={p} type="button" role="tab" aria-selected={pane === p} aria-current={pane === p ? "page" : undefined} onClick={() => setPane(p)}>
-            {p === "library" ? "Library" : p === "script" ? "Script" : "Generate"}
-            {p === "generate" && pending && <span className="ai-dot" aria-label="Working" />}
-          </button>
-        ))}
+    <div className="as">
+      <div className="as-top">
+        <nav className="as-tabs" role="tablist" aria-label="AI Studio">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
+              {t.label}
+              {t.count ? <span className="as-count">{t.count}</span> : null}
+              {t.key === "create" && pending && <span className="ai-dot" aria-label="Working" />}
+            </button>
+          ))}
+        </nav>
+        {free ? (
+          <span className="as-credits" title="The tsayvish team turned billing off for your account">Free for you</span>
+        ) : (
+          <Link className="as-credits" href="/studio/credits" title="Add credits">{money(balance)} <span>credits</span></Link>
+        )}
       </div>
 
-      {notice && <p className="ai-notice" role="status">{notice}</p>}
+      {notice && <p className="as-toast" role="status" onClick={() => setNotice("")}>{notice}</p>}
 
-      <div className="ai-grid" data-pane={pane}>
-        <section className="ai-col ai-lib" aria-label="Library">
-          <MediaLibrary
-            projectId={project.id}
-            canEdit={canEdit}
-            media={media}
-            characterImages={characterImages}
-            urls={urls}
-            selected={selected}
-            onSelect={setSelected}
-            onUploaded={(rows) => setMedia((m) => [...rows, ...m])}
-            onRemoved={(id) => { setMedia((m) => m.filter((x) => x.id !== id)); setSelected((s) => s.filter((k) => k !== `media:${id}`)); }}
-            onDuration={(id, ms) => setMedia((m) => m.map((x) => (x.id === id ? { ...x, duration_ms: ms } : x)))}
-            onNotice={setNotice}
-          />
-        </section>
-
-        <section className="ai-col ai-script" aria-label="Script">
-          <ScriptEditor
-            projectId={project.id}
-            canEdit={canEdit}
-            configured={configured}
-            scripts={scripts}
-            script={script}
-            onPick={setScriptId}
-            onCreated={(s) => { setScripts((all) => [s, ...all]); setScriptId(s.id); }}
-            onDeleted={(id) => { setScripts((all) => all.filter((s) => s.id !== id)); setScriptId((cur) => (cur === id ? null : cur)); }}
-            onEdit={editScript}
-            onSaved={markSaved}
-            media={media}
-            mediaById={mediaById}
-            urlOf={urlOf}
-            gens={gens}
-            onAim={aimAtScene}
-            markup={markup}
-            free={free}
-            onStart={start}
-          />
-        </section>
-
-        <section className="ai-col ai-gen" aria-label="Generate">
+      {tab === "create" && (
+        <div className="as-create">
           <GeneratePanel
             canEdit={canEdit}
             configured={configured}
@@ -253,6 +269,7 @@ export function AIStudio(props: StudioProps) {
             onParams={setParams}
             selected={selected}
             onSelect={setSelected}
+            media={media}
             mediaById={mediaById}
             characterImages={characterImages}
             urls={urls}
@@ -263,17 +280,77 @@ export function AIStudio(props: StudioProps) {
             free={free}
             onStart={start}
           />
-          <GenerationFeed
-            gens={gens}
-            media={media}
-            urls={urls}
-            canEdit={canEdit}
-            onCancel={cancel}
-            onNotice={setNotice}
-            onUse={(m) => { setSelected((s) => (s.includes(`media:${m.id}`) ? s : [...s, `media:${m.id}`])); setNotice(`Selected “${m.label || "result"}” in the library.`); }}
-          />
-        </section>
-      </div>
+          <GenerationFeed gens={gens} media={media} urls={urls} canEdit={canEdit} onCancel={cancel} onOpen={(m) => openMedia(m, media.filter((x) => x.source === "generated"))} />
+        </div>
+      )}
+
+      {tab === "library" && (
+        <MediaLibrary
+          projectId={project.id}
+          canEdit={canEdit}
+          media={media}
+          characterImages={characterImages}
+          urls={urls}
+          onUploaded={(rows) => setMedia((m) => [...rows, ...m])}
+          onOpen={openMedia}
+          onOpenCharacter={openCharacter}
+        />
+      )}
+
+      {tab === "episodes" && (
+        <ScriptEditor
+          projectId={project.id}
+          canEdit={canEdit}
+          configured={configured}
+          scripts={scripts}
+          script={script}
+          onPick={setScriptId}
+          onCreated={(s) => { setScripts((all) => [s, ...all]); setScriptId(s.id); }}
+          onDeleted={(id) => { setScripts((all) => all.filter((s) => s.id !== id)); setScriptId((cur) => (cur === id ? null : cur)); }}
+          onEdit={editScript}
+          onSaved={markSaved}
+          media={media}
+          mediaById={mediaById}
+          urlOf={urlOf}
+          gens={gens}
+          onAim={aimAtScene}
+          markup={markup}
+          free={free}
+          onStart={start}
+        />
+      )}
+
+      {viewer && currentItem && (
+        <MediaViewer
+          item={currentItem}
+          projectId={project.id}
+          url={currentItem.type === "media" ? urls[currentItem.m.path] : undefined}
+          gen={currentItem.type === "media" ? gens.find((g) => g.id === currentItem.m.generation_id) : undefined}
+          canEdit={canEdit}
+          configured={configured}
+          free={free}
+          markup={markup}
+          onClose={() => setViewer(null)}
+          onPrev={viewer.index > 0 ? () => setViewer((v) => (v ? { ...v, index: v.index - 1 } : v)) : undefined}
+          onNext={viewer.index < viewer.items.length - 1 ? () => setViewer((v) => (v ? { ...v, index: v.index + 1 } : v)) : undefined}
+          onRenamed={(id, label) => setMedia((all) => all.map((x) => (x.id === id ? { ...x, label } : x)))}
+          onRemoved={(id) => {
+            setMedia((all) => all.filter((x) => x.id !== id));
+            setSelected((sel) => sel.filter((k) => k !== `media:${id}`));
+            setViewer((v) => {
+              if (!v) return v;
+              const items = v.items.filter((it) => !(it.type === "media" && it.m.id === id));
+              return items.length ? { items, index: Math.min(v.index, items.length - 1) } : null;
+            });
+          }}
+          onUseAsReference={pickAsReference}
+          onAnimate={animate}
+          onEdit={aiEdit}
+          onNotice={setNotice}
+          onSavedAsset={(a) => setCharacterImages((all) => [...all, { key: `asset:${a.id}`, url: a.url, label: a.label || "Asset" }])}
+          onCharacterPicture={(url) => setCharacterImages((all) => [{ key: `character:${project.id}`, url, label: "Character picture" }, ...all.filter((c) => !c.key.startsWith("character:"))])}
+        />
+      )}
     </div>
   );
 }

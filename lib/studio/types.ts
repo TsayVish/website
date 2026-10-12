@@ -78,3 +78,6 @@ export function clock(ms: number | null | undefined) {
   const s = Math.round(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+/** A picture that belongs to the character itself (its main picture or a saved asset). */
+export type CharacterImage = { key: string; url: string; label: string };

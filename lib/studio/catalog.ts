@@ -17,7 +17,7 @@ export const TOOLS: { key: Tool; label: string; help: string }[] = [
 ];
 
 export type Choice = { value: string; label: string };
-export type OptionDef = { key: string; label: string; choices: Choice[]; default: string };
+export type OptionDef = { key: string; label: string; choices: Choice[]; default: string; hidden?: boolean };
 
 /** A resolved input file the provider can fetch. */
 export type InputFile = { kind: MediaKind; url: string; durationMs?: number | null };
@@ -79,20 +79,21 @@ export const MODELS: ModelDef[] = [
     promptMax: 2000,
     needs: { image: [0, 6] },
     options: [
-      { key: "aspect_ratio", label: "Shape", choices: ASPECTS, default: "1:1" },
-      { key: "num_images", label: "How many", choices: ["1", "2", "3", "4"].map((v) => ({ value: v, label: v })), default: "1" },
+      { key: "aspect_ratio", label: "Shape", choices: [{ value: "auto", label: "Auto shape" }, ...ASPECTS], default: "auto" },
+      { key: "num_images", label: "How many", choices: ["1", "2", "3", "4"].map((v) => ({ value: v, label: v === "1" ? "1 image" : `${v} images` })), default: "1" },
+      { key: "mode", label: "Mode", choices: [{ value: "create", label: "Create" }, { value: "edit", label: "Edit" }], default: "create", hidden: true },
     ],
     cost: (a) => 8 * sec(a.params.num_images, 1),
     build: (a) => {
       const input: Record<string, unknown> = {
         prompt: a.prompt,
-        aspect_ratio: a.params.aspect_ratio || "1:1",
+        aspect_ratio: a.params.aspect_ratio || "auto",
         num_images: Math.min(4, sec(a.params.num_images, 1)),
         output_format: "png",
       };
       if (a.images.length) {
         input.image_urls = a.images.map((i) => i.url);
-        input.prompt = identityPrompt(a.prompt, a.images.length);
+        input.prompt = a.params.mode === "edit" ? editPrompt(a.prompt) : identityPrompt(a.prompt, a.images.length);
       }
       return { endpoint: a.images.length ? "fal-ai/nano-banana-2/edit" : "fal-ai/nano-banana-2", input };
     },
@@ -199,6 +200,12 @@ export const MODELS: ModelDef[] = [
 export const modelById = (id: string) => MODELS.find((m) => m.id === id);
 export const modelsFor = (tool: Tool) => MODELS.filter((m) => m.tool === tool);
 export const toolLabel = (tool: string) => TOOLS.find((t) => t.key === tool)?.label ?? tool;
+
+/** Changes one picture and leaves the rest alone. */
+export function editPrompt(change: string) {
+  return `Edit this image: ${change.trim()}\n\nKeep everything else exactly the same: the same person or character (face, skin tone, hair, ` +
+    "features), framing, style and lighting, unless the edit asks to change them.";
+}
 
 /** Keeps the person or character from the reference pictures instead of inventing a new one. */
 export function identityPrompt(prompt: string, refs: number) {
